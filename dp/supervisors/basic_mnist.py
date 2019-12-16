@@ -13,6 +13,11 @@ class BasicSupervisorMNIST(BasicSupervisor):
 
     @staticmethod
     def get_lr(total_step):
+        """return learning rate with warm-up
+
+        In the interval `0 < total_step < 500`, the learning rate grows
+        linearly from 2e-4 to 3e-4."""
+
         if total_step > 500:
             lr = 3e-4
         else:

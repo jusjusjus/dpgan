@@ -148,10 +148,9 @@ def train(config, data_loader, generator_forward, discriminator_forward,
           supervisor, accountant=None):
     print("parameters:", config)
 
-    if config.image_dir:
-        os.makedirs(config.image_dir, exist_ok=True)
-    if config.save_dir:
-        os.makedirs(config.save_dir, exist_ok=True)
+    for folder in (config.image_dir, config.save_dir):
+        if folder:
+            os.makedirs(folder, exist_ok=True)
 
     print("building graph...")
     global_step = tf.Variable(0, trainable=False)

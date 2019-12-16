@@ -8,6 +8,7 @@ from dp.samplers.sampler import Sampler
 
 
 def get_clipper(name, config):
+    print(f"loading clipper {name}")
     if name == "basic":
         return BasicClipper(ConstantBound(config.C))
 
