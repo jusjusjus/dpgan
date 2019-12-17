@@ -53,7 +53,7 @@ def create_dp_parser():
     parser.add_argument("--target-deltas", dest="target_deltas", type=float, default=1e-5, nargs="*")
     parser.add_argument("--target-epsilons", dest="target_epsilons", type=float, default=1.0, nargs="*")
     parser.add_argument("--keep-sigma", dest="keep_sigma", action="store_true")
-    parser.add_argument("--log-path", dest="log_path", default="./cache/logs")
+    parser.add_argument("--log-path", default="./cache/logs")
     parser.add_argument("--log-every", dest="log_every", type=int, default=10)
     parser.add_argument("--moment", default=24, type=int, dest="moment")
     parser.add_argument("--terminate", action="store_true", dest="terminate")

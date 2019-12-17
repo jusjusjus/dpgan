@@ -80,8 +80,11 @@ if __name__ == "__main__":
         sampler = None
 
     scheduler = get_scheduler(config.scheduler, config)
+
     def callback_before_train(_0, _1, _2):
+        """called in `dp.train.train_steps` before training starts"""
         print(clipper.info())
+
     supervisor = BasicSupervisorMNIST(config, clipper, scheduler, sampler=sampler,
                                       callback_before_train=callback_before_train)
     if config.adaptive_rate:

@@ -41,17 +41,17 @@ def get_train_ops(config, real_data, fake_data, global_step, discriminator_forwa
     return aggregate_flow(config, disc_costs, gen_costs, disc_grads,
                           disc_optimizer=disc_optimizer,
                           gen_optimizer=gen_optimizer,
-                          global_step=global_step, supervisor=supervisor, accountant=accountant)
+                          global_step=global_step, supervisor=supervisor,
+                          accountant=accountant)
 
 
-def train_steps(config, data_loader, real_data, fake_data, global_step,
+def train_steps(config, dataloader, real_data, fake_data, global_step,
                 gen_train_op, gen_cost, supervisor,
                 accountant=None):
     init = tf.global_variables_initializer()
 
-    # Initialize or restore session.  If checkpoint `config.load_path` is
-    # given, the whole graph is initialized.  If checkpoint
-    # `config.gan_load_path` is given, only the generator is initialized.
+    # Load train savers for the whole graph and for the generator
+    # specifically.
 
     saver = tf.compat.v1.train.Saver(max_to_keep=25)
     var_list = [
@@ -60,20 +60,30 @@ def train_steps(config, data_loader, real_data, fake_data, global_step,
         and not var.name.endswith("is_training:0")
     ]
     gan_saver = tf.compat.v1.train.Saver(var_list=var_list)
-    total_step = 1
+
+    # Initialize or restore session.  If checkpoint `config.load_path` is
+    # given, the whole graph is initialized.  If checkpoint
+    # `config.gan_load_path` is given, only the generator is initialized.
+
     sess = tf.Session()
+    # `total_step` may change when loading checkpoints.
+    total_step = 1
     if config.load_path:
         print("loading graph from '%s'.." % config.load_path)
         saver.restore(sess, config.load_path)
         total_step = sess.run(global_step)
         print("continue training at step %d.." % total_step)
     elif config.gan_load_path:
-        print("loading generator from '%s'.." % config.gan_load_path)
+        print("loading generator and discriminator from '{}'..".format(
+              config.gan_load_path))
         sess.run(init)
         gan_saver.restore(sess, config.gan_load_path)
     else:
         print("initializing graph..")
         sess.run(init)
+
+    # For mnist, `.callback_before_train` just prints out the clipper
+    # information.
 
     supervisor.callback_before_train(sess, total_step)
 
@@ -81,7 +91,8 @@ def train_steps(config, data_loader, real_data, fake_data, global_step,
     for epoch in range(config.num_epoch):
         gen_losses = []
         disc_losses = []
-        bar = trange(data_loader.num_steps(config.batch_size * config.num_gpu), leave=False)
+        num_steps = dataloader.num_steps(config.batch_size * config.num_gpu)
+        bar = trange(num_steps, leave=False)
         for _ in bar:
             if early_stop:
                 break
@@ -95,7 +106,7 @@ def train_steps(config, data_loader, real_data, fake_data, global_step,
             num_critic = ret["num_critic"]
             for i in range(num_critic):
                 disc_cost_value = supervisor.callback_disc_iter(
-                    sess, total_step, i, real_data, data_loader,
+                    sess, total_step, i, real_data, dataloader,
                     accountant=accountant)
                 if i == num_critic - 1:
                     disc_losses.append(disc_cost_value)
@@ -104,11 +115,11 @@ def train_steps(config, data_loader, real_data, fake_data, global_step,
             tflearn.is_training(False, sess)
             if total_step % config.image_every == 0 and config.image_dir:
                 generated = sess.run(fake_data)
-                generate_images(generated, data_loader.mode(),
+                generate_images(generated, dataloader.mode(),
                                 join(config.image_dir, "gen_step_%d.jpg" % total_step))
                 generate_images(np.concatenate(
-                    [data_loader.next_batch(config.batch_size)[0] for _ in range(config.num_gpu)], axis=0),
-                    data_loader.mode(),
+                    [dataloader.next_batch(config.batch_size)[0] for _ in range(config.num_gpu)], axis=0),
+                    dataloader.mode(),
                     join(config.image_dir, "real_step_%d.jpg" % total_step))
 
             if total_step % config.save_every == 0 and config.save_dir:
@@ -147,14 +158,10 @@ def train_steps(config, data_loader, real_data, fake_data, global_step,
         saver.save(sess, join(config.save_dir, "model"), write_meta_graph=False, global_step=global_step)
 
 
-def print_params(params):
-    print("parameters:", params)
-
-
-def train(config, data_loader, generator_forward, discriminator_forward,
+def train(config, dataloader, generator_forward, discriminator_forward,
           disc_optimizer, gen_optimizer,
           supervisor, accountant=None):
-    print_params(config)
+    print("parameters:", config)
 
     for folder in (config.image_dir, config.save_dir):
         if folder:
@@ -162,7 +169,7 @@ def train(config, data_loader, generator_forward, discriminator_forward,
 
     print("building graph...")
     global_step = tf.Variable(0, trainable=False)
-    real_data = tf.compat.v1.placeholder(tf.float32, shape=[config.num_gpu * config.batch_size] + data_loader.shape())
+    real_data = tf.compat.v1.placeholder(tf.float32, shape=[config.num_gpu * config.batch_size] + dataloader.shape())
     fake_data = generator_forward(config, num_samples=config.num_gpu * config.batch_size)
 
     gen_train_op, gen_cost = get_train_ops(config, real_data, fake_data, global_step,
@@ -173,7 +180,7 @@ def train(config, data_loader, generator_forward, discriminator_forward,
                                          supervisor=supervisor)
     print("graph built.")
 
-    train_steps(config, data_loader, real_data,
+    train_steps(config, dataloader, real_data,
                 fake_data, global_step, gen_train_op, gen_cost, accountant=accountant,
                 supervisor=supervisor)
     print("done with parameters:", config)

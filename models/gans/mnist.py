@@ -8,9 +8,11 @@ from utils.ops import conv_2d, fully_connected
 
 def generator_forward(config, noise=None,
                       scope="generator", name=None, reuse=False, num_samples=-1):
-    with tf.variable_scope(scope, name, reuse=reuse):
+    with tf.compat.v1.variable_scope(scope, name, reuse=reuse):
         if noise is None:
-            noise = tf.random_normal([config.batch_size if num_samples == -1 else num_samples, 128], name="noise")
+            num_samples = config.batch_size if num_samples == -1 \
+                          else num_samples
+            noise = tf.random_normal([num_samples, 128], name="noise")
 
         output = fully_connected(noise, 4*4*4*config.dim)
         output = batch_normalization(output)
@@ -32,7 +34,7 @@ def generator_forward(config, noise=None,
 
 def discriminator_forward(config, incoming,
                       scope="discriminator", name=None, reuse=False):
-    with tf.variable_scope(scope, name, reuse=reuse):
+    with tf.compat.v1.variable_scope(scope, name, reuse=reuse):
         output = leaky_relu(conv_2d(incoming, config.dim, 5, 2), 0.2)
         output = leaky_relu(conv_2d(output, 2 * config.dim, 5, 2), 0.2)
         output = leaky_relu(conv_2d(output, 4 * config.dim, 5, 2), 0.2)
