@@ -72,7 +72,7 @@ class GaussianMomentsAccountant(object):
           0 to t-th moment as a tensor of shape [t+1]."""
 
         assert t <= self._max_moment_order, f"""
-        Order {t} is out of upper bound {self._max_moment_order}"""
+        Order {t} is above upper bound {self._max_moment_order}"""
         binomial = tf.slice(self._binomial, begin=[0, 0], size=[t+1, t+1])
         signs = np.zeros((t + 1, t + 1), dtype=np.float64)
         for i in range(t + 1):
@@ -110,7 +110,7 @@ class GaussianMomentsAccountant(object):
           log E[exp(moment_order * X)]"""
 
         assert moment_order <= self._max_moment_order, f"""
-        Order {moment_order} is out of upper bound {self._max_moment_order}"""
+        Order {moment_order} is above upper bound {self._max_moment_order}"""
 
         binomial = tf.slice(self._binomial, begin=[moment_order, 0],
                                   size=[1, moment_order+1])

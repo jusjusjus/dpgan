@@ -31,25 +31,28 @@ def generate_steps(config, generator_forward):
 
 
 def generate_steps_png(config, generator_forward):
+
     with tf.device("/cpu:0"):
         fake_data = generator_forward(config)
-    saver = tf.train.Saver()
-    sess = tf.Session()
 
-    saver.restore(sess, config.load_path)
-    print("loaded model from %s." % config.load_path)
+    sess = tf.compat.v1.Session()
 
-    tflearn.is_training(False, sess)
-    iid = 0
+    if config.params:
+        print(f"load model from '{config.model_path}'..")
+        saver = tf.compat.v1.train.Saver()
+        saver.restore(sess, config.params)
+    else:
+        sess.run(tf.global_variables_initializer())
+
     os.makedirs(config.save_dir, exist_ok=True)
 
-    for _ in trange(config.times):
+    tflearn.is_training(False, sess)
+    for batch_idx in trange(config.times):
         generated = sess.run(fake_data)
-        for arr in generated:
+        for image_idx, arr in enumerate(generated):
             arr = (127.5 * (arr + 1)).astype(np.uint8)
+            if arr.shape[-1] == 1:
+                arr = np.repeat(arr, 3, axis=-1)
             img = Image.fromarray(arr, "RGB")
-            img.save(os.path.join(config.save_dir, "%d.png" % iid))
-            iid += 1
-
-
-
+            img.save(os.path.join(config.save_dir,
+                     f"{batch_idx * config.batch_size + image_idx}.png"))

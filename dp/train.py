@@ -91,9 +91,9 @@ def train_steps(config, data_loader, real_data, fake_data, global_step,
             ret = supervisor.callback_before_iter(sess, total_step)
             num_critic = ret["num_critic"]
             for i in xrange(num_critic):
-                disc_cost_value = supervisor.callback_disc_iter(sess, total_step, i,
-                           real_data, data_loader,
-                           accountant=accountant)
+                disc_cost_value = supervisor.callback_disc_iter(
+                    sess, total_step, i, real_data, data_loader,
+                    accountant=accountant)
             #     if i == num_critic - 1:
             #         disc_losses.append(disc_cost_value)
             # bar.set_description("gen loss: %.4f, disc loss: %.4f" % (gen_cost_value, disc_cost_value))
