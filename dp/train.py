@@ -60,7 +60,7 @@ def train_steps(config, data_loader, real_data, fake_data, global_step,
         and not var.name.endswith("is_training:0")
     ]
     gan_saver = tf.compat.v1.train.Saver(var_list=var_list)
-    total_step = 0
+    total_step = 1
     sess = tf.Session()
     if config.load_path:
         print("loading graph from '%s'.." % config.load_path)
@@ -88,12 +88,8 @@ def train_steps(config, data_loader, real_data, fake_data, global_step,
             if config.total_step is not None and total_step > config.total_step:
                 break
             tflearn.is_training(True, sess)
-            gen_cost_value = 0.0
-            if total_step > 0:
-                gen_cost_value, _ = sess.run([gen_cost, gen_train_op])
-                gen_losses.append(gen_cost_value)
-            else:
-                sess.run([], feed_dict={global_step: 1})
+            gen_cost_value, _ = sess.run([gen_cost, gen_train_op])
+            gen_losses.append(gen_cost_value)
 
             ret = supervisor.callback_before_iter(sess, total_step)
             num_critic = ret["num_critic"]
@@ -115,7 +111,7 @@ def train_steps(config, data_loader, real_data, fake_data, global_step,
                     data_loader.mode(),
                     join(config.image_dir, "real_step_%d.jpg" % total_step))
 
-            if total_step % config.save_every == 0 and config.save_dir and total_step > 0:
+            if total_step % config.save_every == 0 and config.save_dir:
                 saver.save(sess, join(config.save_dir, "model"), write_meta_graph=False,
                            global_step=global_step)
 
@@ -123,12 +119,12 @@ def train_steps(config, data_loader, real_data, fake_data, global_step,
                 spent_eps_deltas = accountant.get_privacy_spent(
                     sess, target_eps=config.target_epsilons)
 
-                with open(config.log_path, "a") as log_file:
-                    log_file.write("privacy log at step: %d\n" % total_step)
+                with open(config.log_path, "a") as log:
+                    log.write("privacy log at step: %d\n" % total_step)
                     for spent_eps, spent_delta in spent_eps_deltas:
                         to_print = "spent privacy: eps %.4f delta %.5g" % (spent_eps, spent_delta)
-                        log_file.write(to_print + "\n")
-                    log_file.write("\n")
+                        log.write(to_print + "\n")
+                    log.write("\n")
 
             if total_step % 10 == 0 and accountant and config.terminate:
                 spent_eps_deltas = accountant.get_privacy_spent(
