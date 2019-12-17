@@ -100,9 +100,9 @@ def aggregate_flow(config, disc_costs, gen_costs, disc_grads, gen_optimizer,
         [(g, w) for w, g in final_gen_grads.items()], global_step)
 
     if accountant:
-        accountant_sigma = supervisor._accountant_sigma
         accountant_n = tf.placeholder(tf.int32, shape=())
-        accountant_op = accountant.accumulate_privacy_spending(None, accountant_sigma, accountant_n)
+        accountant_op = accountant.accumulate_privacy_spending(None,
+                supervisor._accountant_sigma, accountant_n)
         supervisor.register_accountant_ops(accountant_op, accountant_n)
 
     disc_train_ops = supervisor.callback_create_disc_train_ops(

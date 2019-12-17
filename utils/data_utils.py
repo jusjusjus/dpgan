@@ -424,6 +424,6 @@ def generate_images(arr, mode, output_path):
         new_arr = np.asarray((new_arr + 1) * 127.5, np.uint8)[:, :, 0]
         image = Image.fromarray(new_arr, "L")
     else:
-        raise Exception("Unsupported mode %s" % mode)
+        raise ValueError("Unsupported mode %s" % mode)
 
     image.save(output_path)

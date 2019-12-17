@@ -1,23 +1,22 @@
 #!/usr/bin/env python
+
 """
 Source: https://github.com/tensorflow/models/blob/master/differential_privacy/privacy_accountant/tf/accountant.py
 (Apache License, Version 2.0)
 
 Reference: https://github.com/tensorflow/models/blob/master/differential_privacy/privacy_accountant/tf/accountant.py
 """
-from __future__ import print_function
 
-import collections
-import math
 import sys
+import math
 from functools import partial
+from collections import namedtuple
 
 import numpy as np
 import tensorflow as tf
-from six.moves import xrange
 
 
-EpsDelta = collections.namedtuple("EpsDelta", ["spent_eps", "spent_delta"])
+EpsDelta = namedtuple('EpsDelta', 'spent_eps spent_delta')
 
 
 def generate_binomial_table(m):
@@ -44,17 +43,17 @@ class GaussianMomentsAccountant(object):
     def __init__(self, total_examples, moment_order=32):
         assert total_examples > 0
         self._total_examples = total_examples
-        self._moment_orders = moment_order \
-                if isinstance(moment_order, (list, tuple)) \
-                else [1 + i for i in xrange(moment_order)]
+        self._moment_orders = moment_order if np.iterable(moment_order) \
+                              else np.arange(1, moment_order + 1)
         self._max_moment_order = max(self._moment_orders)
         assert self._max_moment_order < 100, f"""
         Moment order {self._max_moment_order} is too large"""
-        self._log_moments = [tf.Variable(np.float64(0.0), trainable=False,
-                                         name=f"log_moments-{moment_order}")
-                             for moment_order in self._moment_orders]
+        self._log_moments = [
+            tf.Variable(np.float64(0.0), trainable=False,
+                name=f"log_moments-{order}")
+            for order in self._moment_orders
+        ]
         self._binomial = generate_binomial_table(self._max_moment_order)
-
 
     def _differential_moments(self, sigma, s, t):
         """return 0-to-t-th differential moments of Gaussian variable
@@ -128,7 +127,6 @@ class GaussianMomentsAccountant(object):
         return tf.squeeze(tf.log(tf.cast(q * term0 + (1.0 - q) * term1,
                                          tf.float64)))
 
-
     def _compute_delta(self, log_moments, eps):
         """Compute delta for given log_moments and eps.
 
@@ -151,7 +149,6 @@ class GaussianMomentsAccountant(object):
                             math.exp(log_moment - moment_order * eps))
         return min_delta
 
-
     def _compute_eps(self, log_moments, delta):
         min_eps = float("inf")
         for moment_order, log_moment in log_moments:
@@ -161,7 +158,6 @@ class GaussianMomentsAccountant(object):
             min_eps = min(min_eps, (log_moment - math.log(delta)) / moment_order)
         return min_eps
 
-
     def accumulate_privacy_spending(self, unused_eps_delta,
                                     sigma, num_examples):
         """return accumulated privacy spending
@@ -169,7 +165,7 @@ class GaussianMomentsAccountant(object):
         In particular, accounts for privacy spending when we assume there are
         num_examples, and we are releasing the vector
 
-        `(sum_{i=1}^{num_examples} x_i) + Normal(0, stddev=l2norm_bound*sigma)`
+        `Normal(0, stddev=l2norm_bound*sigma) + sum_{i=1}^{num_examples} x_i`
 
         where l2norm_bound is the maximum l2_norm of each example x_i, and the
         num_examples have been randomly selected out of a pool of
@@ -186,12 +182,12 @@ class GaussianMomentsAccountant(object):
         Returns:
           a TensorFlow operation for updating the privacy spending."""
 
-        q = tf.cast(num_examples, tf.float64) * 1.0 / self._total_examples
+        q = tf.cast(num_examples, tf.float64) / float(self._total_examples)
 
-        moments_accum_ops = []
-        for i in range(len(self._log_moments)):
-            moment = self._compute_log_moment(sigma, q, self._moment_orders[i])
-            moments_accum_ops.append(tf.assign_add(self._log_moments[i], moment))
+        moments_accum_ops = [
+            tf.assign_add(moment, self._compute_log_moment(sigma, q, order))
+            for moment, order in zip(self._log_moments, self._moment_orders)
+        ]
         return tf.group(*moments_accum_ops)
 
     def get_privacy_spent(self, sess, eps=None, deltas=None):
@@ -215,19 +211,19 @@ class GaussianMomentsAccountant(object):
         orders_and_moments = zip(self._moment_orders, log_moments)
         if eps is not None:
             eps = [eps] if not np.iterable(eps) else eps
-            deltas = map(partial(self._compute_delta, orders_and_moments), eps)
+            deltas = [self._compute_delta(orders_and_moments, e) for e in eps]
         else:
             deltas = [deltas] if not np.iterable(deltas) else deltas
-            eps = map(partial(self._compute_eps, orders_and_moments), deltas)
+            eps = [self._compute_eps(orders_and_moments, d) for d in deltas]
 
         return [EpsDelta(*ed) for ed in zip(eps, deltas)]
 
 
 class DummyAccountant(object):
-  """An accountant that does no accounting."""
+    """An accountant that does no accounting"""
 
-  def accumulate_privacy_spending(self, *unused_args):
-    return tf.no_op()
+    def accumulate_privacy_spending(self, *unused_args):
+        return tf.no_op()
 
-  def get_privacy_spent(self, unused_sess, **unused_kwargs):
-    return [EpsDelta(np.inf, 1.0)]
+    def get_privacy_spent(self, unused_sess, **unused_kwargs):
+        return [EpsDelta(np.inf, 1.0)]

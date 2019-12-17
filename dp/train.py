@@ -105,6 +105,7 @@ def train_steps(config, dataloader, real_data, fake_data, global_step,
             ret = supervisor.callback_before_iter(sess, total_step)
             num_critic = ret["num_critic"]
             for i in range(num_critic):
+                # `.callback_disc_iter` also runs the accountant ops.
                 disc_cost_value = supervisor.callback_disc_iter(
                     sess, total_step, i, real_data, dataloader,
                     accountant=accountant)
@@ -115,12 +116,14 @@ def train_steps(config, dataloader, real_data, fake_data, global_step,
             tflearn.is_training(False, sess)
             if total_step % config.image_every == 0 and config.image_dir:
                 generated = sess.run(fake_data)
-                generate_images(generated, dataloader.mode(),
-                                join(config.image_dir, "gen_step_%d.jpg" % total_step))
-                generate_images(np.concatenate(
-                    [dataloader.next_batch(config.batch_size)[0] for _ in range(config.num_gpu)], axis=0),
-                    dataloader.mode(),
-                    join(config.image_dir, "real_step_%d.jpg" % total_step))
+                filename = join(config.image_dir, "gen_step_%05d.jpg" % total_step)
+                generate_images(generated, dataloader.mode(), filename)
+                real = [dataloader.next_batch(config.batch_size)[0]
+                        for _ in range(config.num_gpu)]
+                real = np.concatenate(real, axis=0)
+                filename = join(config.image_dir, "real_step_%05d.jpg" % total_step)
+                generate_images(real, dataloader.mode(), filename)
+                del real
 
             if total_step % config.save_every == 0 and config.save_dir:
                 saver.save(sess, join(config.save_dir, "model"), write_meta_graph=False,
