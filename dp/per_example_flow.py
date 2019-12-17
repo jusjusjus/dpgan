@@ -73,15 +73,19 @@ def train_graph_per_tower(config, discriminator_forward, real_data, fake_data,
 def aggregate_flow(config, disc_costs, gen_costs, disc_grads, gen_optimizer,
                    disc_optimizer, global_step,
                     supervisor, accountant=None):
-    gen_weights = [var for var in tf.trainable_variables() if var.name.startswith("generator")]
-    disc_weights = [var for var in tf.trainable_variables() if var.name.startswith("discriminator")]
+    gen_weights = list(filter(lambda v: v.name.startswith('generator'),
+                         tf.trainable_variables()))
+    disc_weights = filter(lambda v: v.name.startswith('discriminator'),
+                          tf.trainable_variables())
 
     final_disc_cost = tf.add_n(disc_costs) / config.num_gpu
     final_gen_cost = tf.add_n(gen_costs) / config.num_gpu
 
-    final_gen_grads = {w: g for g, w in tf.train.GradientDescentOptimizer(
-            learning_rate=1e-3).compute_gradients(final_gen_cost,
-                                                  var_list=gen_weights, colocate_gradients_with_ops=True)}
+    optimizer = tf.compat.v1.train.GradientDescentOptimizer(learning_rate=1e-3)
+    final_gen_grads = {
+        w: g for g, w in optimizer.compute_gradients(final_gen_cost,
+            var_list=gen_weights, colocate_gradients_with_ops=True)
+    }
     final_disc_grads = {w: 0.0 for w in disc_weights}
 
     for ws in disc_grads:

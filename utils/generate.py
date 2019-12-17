@@ -2,6 +2,8 @@
 from six.moves import xrange
 
 import os
+from os import makedirs
+from os.path import exists, join
 
 import tensorflow as tf
 import tflearn
@@ -38,13 +40,13 @@ def generate_steps_png(config, generator_forward):
     sess = tf.compat.v1.Session()
 
     if config.params:
-        print(f"load model from '{config.model_path}'..")
+        print(f"load model from '{config.params}'..")
         saver = tf.compat.v1.train.Saver()
         saver.restore(sess, config.params)
     else:
         sess.run(tf.global_variables_initializer())
 
-    os.makedirs(config.save_dir, exist_ok=True)
+    makedirs(config.save_dir, exist_ok=True)
 
     tflearn.is_training(False, sess)
     for batch_idx in trange(config.times):
@@ -54,5 +56,5 @@ def generate_steps_png(config, generator_forward):
             if arr.shape[-1] == 1:
                 arr = np.repeat(arr, 3, axis=-1)
             img = Image.fromarray(arr, "RGB")
-            img.save(os.path.join(config.save_dir,
+            img.save(join(config.save_dir,
                      f"{batch_idx * config.batch_size + image_idx}.png"))

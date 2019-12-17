@@ -9,13 +9,13 @@ import numpy as np
 import tensorflow as tf
 
 from dp.train import train
-from models.gans import mnist
-from utils.accounting import GaussianMomentsAccountant
-from utils.data_utils import MNISTLoader
+from dp.supervisors.basic_mnist import BasicSupervisorMNIST
 from utils.parsers import create_dp_parser
 from utils.clippers import get_clipper
 from utils.schedulers import get_scheduler
-from dp.supervisors.basic_mnist import BasicSupervisorMNIST
+from utils.accounting import GaussianMomentsAccountant
+from utils.data_utils import MNISTLoader
+from models.gans import mnist
 
 data_dir = env.get('DATA', './data')
 
@@ -23,13 +23,13 @@ if __name__ == "__main__":
     parser = create_dp_parser()
     parser.add_argument("--dim", default=64, type=int, dest="dim")
     parser.add_argument("--data-dir", default=join(data_dir, "mnist"))
-    parser.add_argument("--learning-rate", default=2e-4, type=float, dest="learning_rate")
-    parser.add_argument("--gen-learning-rate", default=2e-4, type=float, dest="gen_learning_rate")
-    parser.add_argument("--adaptive-rate", dest="adaptive_rate", action="store_true")
-    parser.add_argument("--sample-seed", dest="sample_seed", type=int, default=1024)
-    parser.add_argument("--sample-ratio", dest="sample_ratio", type=float)
-    parser.add_argument("--exclude-train", dest="exclude_train", action="store_true")
-    parser.add_argument("--exclude-test", dest="exclude_test", action="store_true")
+    parser.add_argument("--sample-seed", type=int, default=1024)
+    parser.add_argument("--exclude-test", action="store_true")
+    parser.add_argument("--sample-ratio", type=float)
+    parser.add_argument("--exclude-train", action="store_true")
+    parser.add_argument("--adaptive-rate", action="store_true")
+    parser.add_argument("--learning-rate", default=2e-4, type=float)
+    parser.add_argument("--gen-learning-rate", default=2e-4, type=float)
 
     config = parser.parse_args()
     config.dataset = "mnist"
@@ -61,7 +61,7 @@ if __name__ == "__main__":
         accountant = None
 
     if config.adaptive_rate:
-        lr = tf.placeholder(tf.float32, shape=())
+        lr = tf.compat.v1.placeholder(tf.float32, shape=())
     else:
         lr = config.learning_rate
 
