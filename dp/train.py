@@ -126,9 +126,10 @@ def train_steps(config, dataloader, real_data, fake_data, global_step,
                 saver.save(sess, join(config.save_dir, "model"), write_meta_graph=False,
                            global_step=global_step)
 
-            if total_step % config.log_every == 0 and accountant and config.log_path:
-                spent_eps_deltas = accountant.get_privacy_spent(
-                    sess, target_eps=config.target_epsilons)
+            if total_step % config.log_every == 0 \
+                    and accountant and config.log_path:
+                spent_eps_deltas = accountant.get_privacy_spent(sess,
+                                        eps=config.target_epsilons)
 
                 with open(config.log_path, "a") as log:
                     log.write("privacy log at step: %d\n" % total_step)
@@ -138,8 +139,8 @@ def train_steps(config, dataloader, real_data, fake_data, global_step,
                     log.write("\n")
 
             if total_step % 10 == 0 and accountant and config.terminate:
-                spent_eps_deltas = accountant.get_privacy_spent(
-                    sess, target_eps=config.target_epsilons)
+                spent_eps_deltas = accountant.get_privacy_spent(sess,
+                                        eps=config.target_epsilons)
 
                 for (spent_eps, spent_delta), target_delta in zip(
                         spent_eps_deltas, config.target_deltas):

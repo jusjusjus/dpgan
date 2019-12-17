@@ -10,6 +10,7 @@ from __future__ import print_function
 import collections
 import math
 import sys
+from functools import partial
 
 import numpy as np
 import tensorflow as tf
@@ -193,33 +194,33 @@ class GaussianMomentsAccountant(object):
             moments_accum_ops.append(tf.assign_add(self._log_moments[i], moment))
         return tf.group(*moments_accum_ops)
 
-    def get_privacy_spent(self, sess, target_eps=None, target_deltas=None):
+    def get_privacy_spent(self, sess, eps=None, deltas=None):
         """Compute privacy spending in (e, d)-DP form for a single or list of eps.
 
         Args:
           sess: the session to run the tensor.
-          target_eps: a list of target epsilon's for which we would like to
+          eps: a list of target epsilons for which we would like to
             compute corresponding delta value.
-          target_deltas: a list of target deltas for which we would like to
-            compute the corresponding eps value. Caller must specify
-            either target_eps or target_delta.
+          deltas: a list of target deltas for which we would like to
+            compute the corresponding eps value.
+
+        Caller must specify either `eps` or `deltas`.
 
         Returns:
           A list of EpsDelta pairs."""
-        assert (target_eps is None) ^ (target_deltas is None)
-        eps_deltas = []
+
+        assert (eps is None) ^ (deltas is None), """
+        `get_privacy_spent` expects either eps or deltas"""
         log_moments = sess.run(self._log_moments)
-        log_moments_with_order = zip(self._moment_orders, log_moments)
-        if target_eps is not None:
-            for eps in target_eps:
-                eps_deltas.append(
-                    EpsDelta(eps, self._compute_delta(log_moments_with_order, eps)))
+        orders_and_moments = zip(self._moment_orders, log_moments)
+        if eps is not None:
+            eps = [eps] if not np.iterable(eps) else eps
+            deltas = map(partial(self._compute_delta, orders_and_moments), eps)
         else:
-            assert target_deltas
-            for delta in target_deltas:
-                eps_deltas.append(
-                    EpsDelta(self._compute_eps(log_moments_with_order, delta), delta))
-        return eps_deltas
+            deltas = [deltas] if not np.iterable(deltas) else deltas
+            eps = map(partial(self._compute_eps, orders_and_moments), deltas)
+
+        return [EpsDelta(*ed) for ed in zip(eps, deltas)]
 
 
 class DummyAccountant(object):
