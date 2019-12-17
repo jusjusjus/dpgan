@@ -49,7 +49,7 @@ def train_steps(config, data_loader, real_data, fake_data, global_step,
                 accountant=None):
     init = tf.global_variables_initializer()
 
-    saver = tf.train.Saver(max_to_keep=25)
+    saver = tf.compat.v1.train.Saver(max_to_keep=25)
     gan_saver = tf.train.Saver(var_list=
                                [var for var in tf.global_variables()
                                 if var.name.startswith(("generator", "discriminator"))
