@@ -44,9 +44,14 @@ if __name__ == "__main__":
 
     np.random.seed()
     if config.enable_accounting:
-        config.sigma = np.sqrt(2.0 * np.log(1.25 / config.delta)) / config.epsilon
-        print("Accounting enabled.  Changing sigma to:")
-        print(f">  sigma = {config.sigma}")
+        if config.delta and config.epsilon:
+            config.sigma = np.sqrt(2.0 * np.log(1.25 / config.delta)) \
+                           / config.epsilon
+            print("Changing sigma to:")
+            print(f">  sigma = {config.sigma}")
+        else:
+            assert config.sigma is not None, f"""
+            Either --sigma or --delta and --epsilon have to be provided"""
 
     datakw = {
         'include_test': not config.exclude_test,

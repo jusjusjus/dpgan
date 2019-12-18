@@ -53,8 +53,8 @@ class GroupedClipper(Clipper):
         for v, g in m.items():
             assert v.name in self.group_by_var
             c_value = self.bounds[self.group_by_var[v.name]].get_bound_tensor()
-            noised[v] = g + tf.random_normal(shape=v.shape, stddev=c_value * scaled_sigma)
-                        if not self.no_noise else g
+            noise = tf.random.normal(shape=v.shape, stddev=c_value * scaled_sigma)
+            noised[v] = g + noise if not self.no_noise else g
         return noised
 
     def info(self):

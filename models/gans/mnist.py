@@ -12,7 +12,7 @@ def generator_forward(config, noise=None,
         if noise is None:
             num_samples = config.batch_size if num_samples == -1 \
                           else num_samples
-            noise = tf.random_normal([num_samples, 128], name="noise")
+            noise = tf.random.normal([num_samples, 128], name="noise")
 
         output = fully_connected(noise, 4*4*4*config.dim)
         output = batch_normalization(output)
