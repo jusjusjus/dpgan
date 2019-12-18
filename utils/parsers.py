@@ -37,6 +37,8 @@ def create_dp_parser():
     parser.add_argument("-c", "--num-critic", dest="critic_iters", default=5, type=int)
 
     parser.add_argument("--load-path", dest="load_path")
+    parser.add_argument("-o", "--output", dest="output", required=True,
+            default="./cache", type=str, help="Specify the output folder")
     parser.add_argument("--image-dir", dest="image_dir", default="./cache/images")
     parser.add_argument("--save-dir", dest="save_dir", default="./cache/save")
     parser.add_argument("--image-every", dest="image_every", type=int, default=20)

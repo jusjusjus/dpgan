@@ -15,29 +15,27 @@ class BasicClipper(Clipper):
 
     def clip_grads(self, m):
         clipped = []
-        for k, v in m:
-            self.keys.add(k)
-            if k in self.specials:
-                self._bounds[k] = self.specials[k]
-                clipped.append(tf.clip_by_norm(v, self.specials[k].get_bound_tensor()))
+        for w, g in m:
+            self.keys.add(w)
+            if w in self.specials:
+                self._bounds[w] = self.specials[w]
+                clipped.append(tf.clip_by_norm(g, self.specials[w].get_bound_tensor()))
             else:
                 self._bounds[None] = self.bound
-                clipped.append(tf.clip_by_norm(v, self._bounds[None].get_bound_tensor()))
+                clipped.append(tf.clip_by_norm(g, self._bounds[None].get_bound_tensor()))
         return clipped
 
     def num_accountant_terms(self, step):
         return len(self.keys)
 
     def noise_grads(self, m, batch_size, sigma):
-        noised = {k: 0 for k in m}
-        for k, v in m.items():
-            assert k in self.keys
-            if k in self.specials:
-                c_value = self.specials[k].get_bound_tensor()
-            else:
-                c_value = self.bound.get_bound_tensor()
-            noised[k] = v + (tf.random_normal(shape=k.shape, mean=0.0, stddev=c_value * sigma) /
-                           np.sqrt(batch_size))
+        scaled_sigma = sigma / np.sqrt(batch_size)
+        noised = {}
+        for w, g in m.items():
+            assert w in self.keys
+            C = self.specials.get(w, self.bound).get_bound_tensor()
+            noise = tf.random_normal(shape=w.shape, stddev=C * scaled_sigma)
+            noised[w] = g + noise
         return noised
 
     def info(self):

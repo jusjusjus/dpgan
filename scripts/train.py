@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from os import environ as env
+from os import makedirs
 from os.path import join
 from sys import path
 path.insert(0, '.')
@@ -32,7 +33,14 @@ if __name__ == "__main__":
     parser.add_argument("--gen-learning-rate", default=2e-4, type=float)
 
     config = parser.parse_args()
+    if hasattr(config, 'output'):
+        config.image_dir = join(config.output, 'images')
+        config.save_dir = join(config.output, 'ckpts')
+        for folder in (config.image_dir, config.save_dir):
+            makedirs(folder, exist_ok=True)
+        config.log_path = join(config.output, 'logs.txt')
     config.dataset = "mnist"
+
 
     np.random.seed()
     if config.enable_accounting:
@@ -53,12 +61,8 @@ if __name__ == "__main__":
     else:
         gan_data_loader = MNISTLoader(config.data_dir, **datakw)
 
-    if config.enable_accounting:
-        accountant = GaussianMomentsAccountant(gan_data_loader.n, config.moment)
-        if config.log_path:
-            open(config.log_path, "w").close()
-    else:
-        accountant = None
+    accountant = GaussianMomentsAccountant(gan_data_loader.n, config.moment) \
+                 if config.enable_accounting else None
 
     if config.adaptive_rate:
         lr = tf.compat.v1.placeholder(tf.float32, shape=())
@@ -89,6 +93,9 @@ if __name__ == "__main__":
                                       callback_before_train=callback_before_train)
     if config.adaptive_rate:
         supervisor.put_key("lr", lr)
+
+    with open(config.log_path, 'w') as fp:
+        fp.write("Input Parameters: " + str(config) + "\n\n")
 
     train(config, gan_data_loader, mnist.generator_forward, mnist.discriminator_forward,
           gen_optimizer=gen_optimizer,

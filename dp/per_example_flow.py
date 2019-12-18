@@ -1,24 +1,28 @@
+
 import numpy as np
 import tensorflow as tf
 
-from dp.per_example_forward import discriminator_forward_per_examples, discriminator_forward_with_lookups
+from dp.per_example_forward import (discriminator_forward_per_examples,
+                                    discriminator_forward_with_lookups)
 
 
-def gradient_norms_estimate_tower(config, discriminator_forward, real_data, fake_data,
-                         supervisor):
-    disc_real_outputs, lookups = discriminator_forward_per_examples(discriminator_forward, config, real_data)
-    disc_fake_outputs = discriminator_forward_with_lookups(discriminator_forward,
-                                                           config, fake_data, lookups
-                                                           )
+def gradient_norms_estimate_tower(config, discriminator_forward, real_data,
+                                  fake_data, supervisor):
+
+    disc_real_outputs, lookups = discriminator_forward_per_examples(
+                                    discriminator_forward, config, real_data)
+
+    disc_fake_outputs = discriminator_forward_with_lookups(
+                            discriminator_forward, config, fake_data, lookups)
 
     disc_cost = tf.reshape((tf.add_n(disc_fake_outputs) - tf.add_n(disc_real_outputs)), []) / config.batch_size
     alphas = tf.random_uniform(shape=[config.batch_size], minval=0., maxval=1.)
     differences = fake_data - real_data
     interpolates = real_data + (alphas[:, tf.newaxis, tf.newaxis, tf.newaxis] * differences)
-    disc_interploated_outputs = tf.concat(discriminator_forward_with_lookups(
+    disc_interpolated_outputs = tf.concat(discriminator_forward_with_lookups(
         discriminator_forward, config, interpolates, lookups), axis=0)
 
-    gradients = tf.gradients(disc_interploated_outputs, [interpolates], colocate_gradients_with_ops=True)[0]
+    gradients = tf.gradients(disc_interpolated_outputs, [interpolates], colocate_gradients_with_ops=True)[0]
     slopes = tf.sqrt(tf.reduce_sum(tf.square(gradients), reduction_indices=[1, 2, 3]))
     gradient_penalty = tf.reduce_mean((slopes - 1.) ** 2)
     disc_cost += config.lambd * gradient_penalty
@@ -38,34 +42,37 @@ def gradient_norms_estimate_tower(config, discriminator_forward, real_data, fake
 
 def train_graph_per_tower(config, discriminator_forward, real_data, fake_data,
                           supervisor):
-    disc_real_outputs, lookups = discriminator_forward_per_examples(discriminator_forward, config, real_data)
-    disc_fake_outputs = discriminator_forward_with_lookups(discriminator_forward,
-                                                           config, fake_data, lookups
-                                                           )
+    disc_real_outputs, lookups = discriminator_forward_per_examples(
+                                    discriminator_forward, config, real_data)
+    disc_fake_outputs = discriminator_forward_with_lookups(
+                            discriminator_forward, config, fake_data, lookups)
 
+    # Wasserstein loss
     gen_cost = -tf.reshape(tf.add_n(disc_fake_outputs) / config.batch_size, [])
     disc_cost = tf.reshape((tf.add_n(disc_fake_outputs) - tf.add_n(disc_real_outputs)), []) / config.batch_size
-    alphas = tf.random_uniform(shape=[config.batch_size], minval=0., maxval=1.)
-    differences = fake_data - real_data
-    interpolates = real_data + (alphas[:, tf.newaxis, tf.newaxis, tf.newaxis] * differences)
-    disc_interploated_outputs = tf.concat(discriminator_forward_with_lookups(
-        discriminator_forward, config, interpolates, lookups), axis=0)
 
-    gradients = tf.gradients(disc_interploated_outputs, [interpolates], colocate_gradients_with_ops=True)[0]
-    slopes = tf.sqrt(tf.reduce_sum(tf.square(gradients), reduction_indices=[1, 2, 3]))
+    # Gradient penalty
+    alphas = tf.random_uniform(shape=[config.batch_size], minval=0., maxval=1.)
+    alphas = alphas[:, tf.newaxis, tf.newaxis, tf.newaxis]
+    interpolates = real_data + (alphas * (fake_data - real_data))
+    disc_interpolated_outputs = tf.concat(discriminator_forward_with_lookups(
+        discriminator_forward, config, interpolates, lookups), axis=0)
+    gradients = tf.gradients(disc_interpolated_outputs, [interpolates],
+                             colocate_gradients_with_ops=True)[0]
+    slopes = tf.sqrt(tf.reduce_sum(tf.square(gradients),
+                     reduction_indices=[1, 2, 3]))
     gradient_penalty = tf.reduce_mean((slopes - 1.) ** 2)
     disc_cost += config.lambd * gradient_penalty
 
-    disc_weights = [var for var in tf.trainable_variables() if var.name.startswith("discriminator")]
+    disc_weights = [v for v in tf.trainable_variables() if v.name.startswith("discriminator")]
 
     disc_final_grad = {weight: 0.0 for weight in disc_weights}
     for lookup in lookups:
         grads = tf.gradients(disc_cost, [lookup[weight] for weight in disc_weights])
-        m = [(weight, grad) for weight, grad in zip(disc_weights, grads)]
+        m = list(zip(disc_weights, grads))
         clipped_grads = supervisor.callback_clip_grads(m)
-        for weight, clipped_grad in zip(disc_weights, [config.batch_size * grad
-                                                       for grad in clipped_grads]):
-            disc_final_grad[weight] += clipped_grad / config.batch_size
+        for weight, grad in zip(disc_weights, clipped_grads):
+            disc_final_grad[weight] += grad
 
     return disc_cost, gen_cost, [(g, w) for w, g in disc_final_grad.items()]
 

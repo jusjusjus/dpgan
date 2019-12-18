@@ -12,31 +12,36 @@ from .per_example_flow import train_graph_per_tower, aggregate_flow, gradient_no
 from utils.data_utils import generate_images
 
 
-def get_train_ops(config, real_data, fake_data, global_step, discriminator_forward,
-                  gen_optimizer, disc_optimizer,
+def get_train_ops(config, real_data, fake_data, global_step,
+                  discriminator_forward, gen_optimizer, disc_optimizer,
                   supervisor, accountant=None):
+    # Why are we doing this?
     with tf.device("/cpu:0"):
-        discriminator_forward(config, tf.zeros(shape=[1] + [d.value for d in real_data.shape[1:]]), scope="discriminator")
+        zeros = tf.zeros(shape=(1,) + real_data.shape[1:])
+        discriminator_forward(config, zeros, scope="discriminator")
 
+    # Split batches across GPUs
     real_data_splits = tf.split(real_data, config.num_gpu, axis=0)
     fake_data_splits = tf.split(fake_data, config.num_gpu, axis=0)
-    disc_grads = []
+
+    # Compute critic gradients per GPU and gather gradients
     gen_costs = []
     disc_costs = []
-
+    disc_grads = []
     for g, (real_data, fake_data) in enumerate(zip(real_data_splits, fake_data_splits)):
-        with tf.device("/gpu:%d" % g):
+        with tf.device(f"/gpu:{g}"):
             disc_cost, gen_cost, disc_grad = train_graph_per_tower(
                 config, discriminator_forward, real_data, fake_data, supervisor)
-            disc_costs.append(disc_cost)
             gen_costs.append(gen_cost)
+            disc_costs.append(disc_cost)
             disc_grads.append(disc_grad)
 
+    # Estimate gradient penalty from batch[0]
     if supervisor.sampler is not None:
-        supervisor.sampler.set_forward_function(partial(gradient_norms_estimate_tower,
-                                                        config, discriminator_forward,
-                                                        real_data_splits[0], fake_data_splits[0],
-                                                        supervisor))
+        func = partial(gradient_norms_estimate_tower, config,
+                       discriminator_forward, real_data_splits[0],
+                       fake_data_splits[0], supervisor)
+        supervisor.sampler.set_forward_function(func)
 
     return aggregate_flow(config, disc_costs, gen_costs, disc_grads,
                           disc_optimizer=disc_optimizer,
