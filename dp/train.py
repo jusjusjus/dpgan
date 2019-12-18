@@ -17,7 +17,7 @@ def get_train_ops(config, real_data, fake_data, global_step,
                   supervisor, accountant=None):
     # Why are we doing this?
     with tf.device("/cpu:0"):
-        zeros = tf.zeros(shape=(1,) + real_data.shape[1:])
+        zeros = tf.zeros(shape=[1] + list(map(int, real_data.shape[1:])))
         discriminator_forward(config, zeros, scope="discriminator")
 
     # Split batches across GPUs

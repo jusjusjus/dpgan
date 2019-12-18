@@ -18,13 +18,13 @@ parser.add_argument("--times", default=7, type=int)
 parser.add_argument("--params", type=str, default=None, help="Path to parameters")
 parser.add_argument("--save-dir", type=str, default='./cache/images')
 parser.add_argument("--batch-size", default=16, type=int)
-opt = parser.parse_args()
+config = parser.parse_args()
 
-if opt.model is 'mnist':
+if config.model is 'mnist':
     from models.gans.mnist import generator_forward
-elif opt.model in ('celeba', 'lsun'):
+elif config.model in ('celeba', 'lsun'):
     from models.gans.d48_resnet_dcgan import generator_forward
 else:
-    raise ValueError(f"Unkown model {opt.model}")
+    raise ValueError(f"Unkown model {config.model}")
 
-generate_steps_png(opt, generator_forward)
+generate_steps_png(config, generator_forward)
