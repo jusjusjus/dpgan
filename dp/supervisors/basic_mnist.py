@@ -8,8 +8,8 @@ class BasicSupervisorMNIST(BasicSupervisor):
 
     def __init__(self, config, clipper, scheduler, sampler=None,
                  callback_before_train=None):
-        super(BasicSupervisorMNIST, self).__init__(config, clipper,
-                                                   scheduler, sampler, callback_before_train)
+        super().__init__(config, clipper, scheduler, sampler,
+                         callback_before_train)
 
     @staticmethod
     def get_lr(total_step):

@@ -160,6 +160,11 @@ class LSUNLoader(object):
             sleep(0.01)
         return int(self._n.value / batch_size)
 
+    @property
+    def n(self):
+        """return number of examples in dataset"""
+        return num_steps(1)
+
     def mode(self):
         return "rgb"
 
@@ -233,6 +238,11 @@ class LSUNCatLoader(object):
         while self._n.value == -1:
             sleep(0.01)
         return int(self._n.value / batch_size)
+
+    @property
+    def n(self):
+        """return number of examples in dataset"""
+        return num_steps(1)
 
     def shape(self):
         return [64, 64, 3]

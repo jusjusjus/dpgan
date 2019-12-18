@@ -41,16 +41,14 @@ if __name__ == "__main__":
         raise NotImplementedError("Unsupported image size %d." % config.image_size)
 
     if config.enable_accounting:
-        accountant = GaussianMomentsAccountant(data_loader.num_steps(1), config.moment)
+        accountant = GaussianMomentsAccountant(data_loader.n, config.moment)
         if config.log_path:
             open(config.log_path, "w").close()
     else:
         accountant = None
 
-    if config.adaptive_rate:
-        lr = tf.placeholder(tf.float32, shape=())
-    else:
-        lr = config.learning_rate
+    lr = tf.placeholder(tf.float32, shape=()) if config.adaptive_rate \
+         else config.learning_rate
 
     gen_optimizer = tf.train.AdamOptimizer(config.gen_learning_rate, beta1=config.beta1,
                                        beta2=config.beta2)

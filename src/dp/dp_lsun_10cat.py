@@ -44,7 +44,7 @@ if __name__ == "__main__":
         raise NotImplementedError("Unsupported image size %d." % config.image_size)
 
     if config.enable_accounting:
-        accountant = GaussianMomentsAccountant(data_loader.num_steps(1), config.moment)
+        accountant = GaussianMomentsAccountant(data_loader.n, config.moment)
         if config.log_path:
             open(config.log_path, "w").close()
     else:
@@ -84,8 +84,8 @@ if __name__ == "__main__":
 
     try:
         train(config, data_loader, generator_forward, discriminator_forward,
-              disc_optimizer=disc_optimizer,
-              gen_optimizer=gen_optimizer, accountant=accountant, supervisor=supervisor)
+              disc_optimizer=disc_optimizer, gen_optimizer=gen_optimizer,
+              accountant=accountant, supervisor=supervisor)
     finally:
         data_loader.stop_fetch()
         if sampler is not None:
