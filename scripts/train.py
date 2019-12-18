@@ -35,7 +35,7 @@ if __name__ == "__main__":
     config = parser.parse_args()
     if hasattr(config, 'output'):
         config.image_dir = join(config.output, 'images')
-        config.save_dir = join(config.output, 'ckpts')
+        config.save_dir = join(config.output, 'checkpoints')
         for folder in (config.image_dir, config.save_dir):
             makedirs(folder, exist_ok=True)
         config.log_path = join(config.output, 'logs.txt')
@@ -45,7 +45,8 @@ if __name__ == "__main__":
     np.random.seed()
     if config.enable_accounting:
         config.sigma = np.sqrt(2.0 * np.log(1.25 / config.delta)) / config.epsilon
-        print("Now with new sigma: %.4f" % config.sigma)
+        print("Accounting enabled.  Changing sigma to:")
+        print(f">  sigma = {config.sigma}")
 
     datakw = {
         'include_test': not config.exclude_test,
@@ -70,8 +71,8 @@ if __name__ == "__main__":
         lr = config.learning_rate
 
     optkw = {'beta1': 0.5, 'beta2': 0.9}
-    gen_optimizer = tf.compat.v1.train.AdamOptimizer(config.gen_learning_rate,
-                                                     **optkw)
+    gen_optimizer = tf.compat.v1.train.AdamOptimizer(
+                        config.gen_learning_rate, **optkw)
     disc_optimizer = tf.compat.v1.train.AdamOptimizer(lr, **optkw)
 
     clipper_ret = get_clipper(config.clipper, config)
@@ -95,9 +96,9 @@ if __name__ == "__main__":
         supervisor.put_key("lr", lr)
 
     with open(config.log_path, 'w') as fp:
-        fp.write("Input Parameters: " + str(config) + "\n\n")
+        fp.write("Input Parameters:\n" + str(config) + "\n\n")
 
-    train(config, gan_data_loader, mnist.generator_forward, mnist.discriminator_forward,
-          gen_optimizer=gen_optimizer,
+    train(config, gan_data_loader, mnist.generator_forward,
+          mnist.discriminator_forward, gen_optimizer=gen_optimizer,
           disc_optimizer=disc_optimizer, accountant=accountant,
           supervisor=supervisor)
