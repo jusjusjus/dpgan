@@ -1,4 +1,3 @@
-from six.moves import xrange
 
 import tensorflow as tf
 import numpy as np
@@ -9,67 +8,64 @@ from dp.clippers.base import Clipper
 class GroupedClipper(Clipper):
 
     def __init__(self, groups, no_noise=False):
-        super(GroupedClipper, self).__init__()
+        super().__init__()
         self.no_noise = no_noise
-        self.group_vars = {}
-        self.group_bounds = {}
-        self.var_groups = {}
+        self.group_by_var = {}
+        self.variables = {}
+        self.bounds = {}
 
         for i, (variables, bound) in enumerate(groups):
-            self.group_vars[i] = list(variables)
-            self.group_bounds[i] = bound
+            self.variables[i] = list(variables)
+            self.bounds[i] = bound
             for var in variables:
-                self.var_groups[var] = i
+                self.group_by_var[var] = i
 
     def clip_grads(self, m):
-        clipped = []
-        groups = {i: [] for i in xrange(len(self.group_vars))}
-        for k, v in m:
-            assert k.name in self.var_groups
-            groups[self.var_groups[k.name]].append((k.name, v))
+        groups = {i: [] for i in range(len(self.variables))}
+        for v, g in m:
+            assert v.name in self.group_by_var
+            groups[self.group_by_var[v.name]].append((v.name, g))
 
-        ret = {}
-        for group, name_grads in groups.items():
-            names = [name for name, _ in name_grads]
-            grads = [grad for _, grad in name_grads]
+        # It's questionable if this is really more efficient than to iterate
+        # through all grads and apply clip-by-norm one by one.
+
+        clipped_grads = {}
+        for group, grouped_gradients in groups.items():
+            names = [name for name, _ in grouped_gradients]
+            grads = [grad for _, grad in grouped_gradients]
             shapes = [grad.shape for grad in grads]
-            reshaped = [tf.reshape(grad, [-1]) for grad in grads]
-            sizes = [grad.shape[0].value for grad in reshaped]
-            cat = tf.concat(reshaped, axis=0)
-            clip = tf.clip_by_norm(cat, self.group_bounds[group].get_bound_tensor())
-            split = tf.split(clip, sizes)
-            for shape, name, grad in zip(shapes, names, split):
-                ret[name] = tf.reshape(grad, shape)
+            grads = [tf.reshape(grad, [-1]) for grad in grads]
+            flattened_sizes = [grad.shape[0].value for grad in grads]
+            grads = tf.concat(grads, axis=0)
+            grads = tf.clip_by_norm(grads, self.bounds[group].get_bound_tensor())
+            grads = tf.split(grads, flattened_sizes)
+            for shape, name, grad in zip(shapes, names, grads):
+                clipped_grads[name] = tf.reshape(grad, shape)
 
-        for k, v in m:
-            clipped.append(ret[k.name])
-        return clipped
+        return [clipped_grads[v.name] for v, _ in m]
 
     def num_accountant_terms(self, step):
-        return len(self.group_vars)
+        return len(self.variables)
 
     def noise_grads(self, m, batch_size, sigma):
-        noised = {k: 0 for k in m}
-        for k, v in m.items():
-            assert k.name in self.var_groups
-            c_value = self.group_bounds[self.var_groups[k.name]].get_bound_tensor()
-            if not self.no_noise:
-                noised[k] = v + (tf.random_normal(shape=k.shape, mean=0.0, stddev=c_value * sigma) /
-                               np.sqrt(batch_size))
-            else:
-                noised[k] = v
+        noised = {v: 0 for v in m}
+        scaled_sigma = sigma / np.sqrt(batch_size)
+        for v, g in m.items():
+            assert v.name in self.group_by_var
+            c_value = self.bounds[self.group_by_var[v.name]].get_bound_tensor()
+            noised[v] = g + tf.random_normal(shape=v.shape, stddev=c_value * scaled_sigma)
+                        if not self.no_noise else g
         return noised
 
     def info(self):
-        f = "Basic clipper\n"
+        f = "GroupedClipper\n"
         r = []
-        for group, vars in sorted(self.group_vars.items(), key=lambda x: x[0]):
-            names = ",".join(vars)
-            r.append("(%s, %r)" % (names, self.group_bounds[group]))
-        return f + "\n".join(r)
+        for group, vars in sorted(self.variables.items(), key=lambda x: x[0]):
+            r.append(f"({','.join(vars)}, {self.bounds[group]})")
+        return f + '\n'.join(r)
 
     def update_feed_dict(self, sess, steps):
         d = {}
-        for k, b in self.group_bounds.items():
+        for _, b in self.bounds.items():
             d.update(b.update_feed_dict(sess, steps))
         return d

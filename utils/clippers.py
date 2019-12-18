@@ -14,28 +14,10 @@ def get_clipper(name, config):
 
     elif name == "mnist":
         def callback_b1(clipper, sess, total_step):
-            # if total_step > 150:
-            #     val = 3.0
-            # elif total_step > 75:
-            #     val = 6.0 - (6.0 - 3.0) / 75 * (total_step - 75)
-            # else:
-            #     val = 12.0 - (12.0 - 6.0) / 75 * total_step
-
-            val = config.C
-
-            return {clipper.tensor: val}
+            return {clipper.tensor: config.C}
 
         def callback_b2(clipper, sess, total_step):
-            # if total_step > 150:
-            #     val = 0.75
-            # elif total_step > 75:
-            #     val = 1.5 - (1.5 - 0.75) / 75 * (total_step - 75)
-            # else:
-            #     val = 3.0 - (3.0 - 1.5) / 75 * total_step
-
-            val = config.C
-
-            return {clipper.tensor: val}
+            return {clipper.tensor: config.C}
 
         b1 = TensorBound(tf.placeholder(tf.float32, shape=()), update_callback=callback_b1)
         b2 = TensorBound(tf.placeholder(tf.float32, shape=()), update_callback=callback_b2)

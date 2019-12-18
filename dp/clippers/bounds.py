@@ -30,7 +30,7 @@ class Bound(object):
 class ConstantBound(Bound):
 
     def __init__(self, value):
-        super(ConstantBound, self).__init__()
+        super().__init__()
         self.value = value
 
     def get_bound_tensor(self, global_step=None, **kwargs):
@@ -43,7 +43,7 @@ class ConstantBound(Bound):
 class TensorBound(Bound):
 
     def __init__(self, tensor, update_callback=None):
-        super(TensorBound, self).__init__()
+        super().__init__()
         self.tensor = tensor
         self.update_callback = update_callback
 
