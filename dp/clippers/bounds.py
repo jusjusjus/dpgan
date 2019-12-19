@@ -31,13 +31,16 @@ class ConstantBound(Bound):
 
     def __init__(self, value):
         super().__init__()
-        self.value = value
+        self.value = np.float32(value)
 
     def get_bound_tensor(self, global_step=None, **kwargs):
-        return np.float32(self.value)
+        return self.value
 
     def update_feed_dict(self, sess, total_step, **kwargs):
         return {}
+
+    def __repr__(self):
+        return f"ConstantBound(value={self.value})"
 
 
 class TensorBound(Bound):
@@ -56,4 +59,4 @@ class TensorBound(Bound):
         return {}
 
     def __repr__(self):
-        return "TensorBound with tensor: %r" % self.tensor
+        return f"TensorBound(tensor={self.tensor})"
