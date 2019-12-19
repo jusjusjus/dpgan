@@ -37,24 +37,23 @@ def generate_steps_png(config, generator_forward):
     with tf.device("/cpu:0"):
         fake_data = generator_forward(config)
 
-    sess = tf.compat.v1.Session()
+    with tf.compat.v1.Session() as sess:
+        if config.params:
+            print(f"load model from '{config.params}'..")
+            saver = tf.compat.v1.train.Saver()
+            saver.restore(sess, config.params)
+        else:
+            sess.run(tf.global_variables_initializer())
 
-    if config.params:
-        print(f"load model from '{config.params}'..")
-        saver = tf.compat.v1.train.Saver()
-        saver.restore(sess, config.params)
-    else:
-        sess.run(tf.global_variables_initializer())
+        makedirs(config.save_dir, exist_ok=True)
 
-    makedirs(config.save_dir, exist_ok=True)
-
-    tflearn.is_training(False, sess)
-    for batch_idx in trange(config.times):
-        generated = sess.run(fake_data)
-        for image_idx, arr in enumerate(generated):
-            arr = (127.5 * (arr + 1)).astype(np.uint8)
-            if arr.shape[-1] == 1:
-                arr = np.repeat(arr, 3, axis=-1)
-            img = Image.fromarray(arr, "RGB")
-            img.save(join(config.save_dir,
-                     f"{batch_idx * config.batch_size + image_idx}.png"))
+        tflearn.is_training(False, sess)
+        for batch_idx in trange(config.times):
+            generated = sess.run(fake_data)
+            for image_idx, arr in enumerate(generated):
+                arr = (127.5 * (arr + 1)).astype(np.uint8)
+                if arr.shape[-1] == 1:
+                    arr = np.repeat(arr, 3, axis=-1)
+                img = Image.fromarray(arr, "RGB")
+                idx = batch_idx * config.batch_size + image_idx
+                img.save(join(config.save_dir, f"{idx:04d}.png"))
