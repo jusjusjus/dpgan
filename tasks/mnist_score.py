@@ -1,7 +1,3 @@
-#!/usr/bin/env python
-from __future__ import division
-
-from six.moves import xrange
 
 import tensorflow as tf
 import numpy as np
@@ -25,7 +21,7 @@ def next_batch(images_iter, batch_size=100):
         yield np.concatenate(elements, axis=0)
 
 
-def get_mnist_score(images_iter, model_path, batch_size=100, split=10):
+def get_mnist_score(images_iter, model_path, batch_size=100, splits=10):
     tf.reset_default_graph()
 
     incoming = tf.placeholder(tf.float32, shape=[None, 28, 28, 1], name="input")
@@ -37,26 +33,23 @@ def get_mnist_score(images_iter, model_path, batch_size=100, split=10):
 
     preds, scores = [], []
 
-    sess = tf.Session()
+    with tf.compat.v1.Session() as sess:
+        sess.run(tf.global_variables_initializer())
+        tflearn.is_training(False, sess)
+        saver.restore(sess, model_path)
 
-    sess.run(tf.global_variables_initializer())
-    tflearn.is_training(False, sess)
-    saver.restore(sess, model_path)
-
-    for images in next_batch(images_iter, batch_size):
-        pred = sess.run(probs, feed_dict={incoming: images})
-        preds.append(pred)
-
-        # print(images)
-
-    sess.close()
+        for images in next_batch(images_iter, batch_size):
+            pred = sess.run(probs, feed_dict={incoming: images})
+            preds.append(pred)
 
     preds = np.concatenate(preds, 0)
-
-    for i in xrange(split):
-        part = preds[i * len(preds) // split: (i + 1) * len(preds) // split]
-        kl = part * (np.log(np.maximum(part, 1e-12)) - np.log(np.expand_dims(np.mean(part, 0), 0)))
-        kl = np.mean(np.sum(kl, 1))
-        scores.append(np.exp(kl))
+    for i in range(splits):
+        P_yx = preds[i::splits]
+        P_y = np.mean(P_yx, 0, keepdims=True)
+        P_yx = np.maximum(P_yx, 1e-12)
+        P_y = np.maximum(P_y, 1e-12)
+        KL_div = np.sum(P_yx * (np.log(P_yx) - np.log(P_y)), 1)
+        s_G = np.exp(np.mean(KL_div))
+        scores.append(s_G)
 
     return np.mean(scores), np.std(scores)
