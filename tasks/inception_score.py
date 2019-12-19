@@ -34,18 +34,19 @@ def get_inception_score(images, splits=10):
   inps = list(map(check, images))
   with tf.compat.v1.Session() as sess:
     preds = []
-    for i in range(len(inps)):
+    for inp in inps:
         sys.stdout.write(".")
         sys.stdout.flush()
-        pred = sess.run(softmax, {'ExpandDims:0': inps[i]})
+        pred = sess.run(softmax, {'ExpandDims:0': inp})
         preds.append(pred)
     preds = np.concatenate(preds, 0)
     scores = []
     for i in range(splits):
-      part = preds[(i * preds.shape[0] // splits):((i + 1) * preds.shape[0] // splits), :]
-      kl = part * (np.log(part) - np.log(np.expand_dims(np.mean(part, 0), 0)))
-      kl = np.mean(np.sum(kl, 1))
-      scores.append(np.exp(kl))
+      P_yx = preds[i::splits]
+      P_y = np.mean(P_yx, 0, keepdims=True)
+      KL_div = np.sum(P_yx * (np.log(P_yx) - np.log(P_y)), axis=1)
+      s_G = np.exp(np.mean(KL_div))
+      scores.append(s_G)
     return np.mean(scores), np.std(scores)
 
 # This function is called automatically.
