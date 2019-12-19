@@ -51,8 +51,9 @@ def get_train_ops(config, real_data, fake_data, global_step,
 
 
 def train_steps(config, dataloader, real_data, fake_data, global_step,
-                gen_train_op, gen_cost, supervisor,
-                accountant=None):
+                gen_train_op, gen_cost, supervisor, accountant=None):
+    """"""
+
     init = tf.global_variables_initializer()
 
     # Load train savers for the whole graph and for the generator
@@ -116,12 +117,13 @@ def train_steps(config, dataloader, real_data, fake_data, global_step,
                     accountant=accountant)
                 if i == num_critic - 1:
                     disc_losses.append(disc_cost_value)
-            bar.set_description("gen loss: %.4f, disc loss: %.4f" % (gen_cost_value, disc_cost_value))
+            bar.set_description(f"gen loss: {gen_cost_value:.3f}, "
+                                f"disc loss: {disc_cost_value:.3f}")
 
             tflearn.is_training(False, sess)
             if total_step % config.image_every == 0 and config.image_dir:
                 generated = sess.run(fake_data)
-                filename = join(config.image_dir, "gen_step_%05d.jpg" % total_step)
+                filename = join(config.image_dir, f"gen_step_{total_step:05d}.jpg")
                 generate_images(generated, dataloader.mode(), filename)
                 real = [dataloader.next_batch(config.batch_size)[0]
                         for _ in range(config.num_gpu)]
@@ -146,7 +148,7 @@ def train_steps(config, dataloader, real_data, fake_data, global_step,
                         log.write(to_print + "\n")
                     log.write("\n")
 
-            if total_step % 10 == 0 and accountant and config.terminate:
+            if total_step % 250 == 0 and accountant and config.terminate:
                 spent_eps_deltas = accountant.get_privacy_spent(sess,
                                         eps=config.target_epsilons)
 
