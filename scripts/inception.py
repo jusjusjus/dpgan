@@ -1,14 +1,44 @@
 #!/usr/bin/env python
 
-from os.path import join, splitext
+from os.path import join, splitext, isdir
 from sys import path
 path.insert(0, '.')
 from glob import glob
 from argparse import ArgumentParser 
 from functools import partial
+from collections import namedtuple
+
+import numpy as np
+from PIL import Image
+
+from utils.generate import generate_steps
+
+
+def read_images(folder):
+    filenames = glob(join(folder, '*.png'))
+    assert all(splitext(f)[1] in ('.png', '.jpg') for f in filenames)
+    print(f"Found {len(filenames)} images in '{opt.folder_or_params}'")
+    images = map(Image.open, filenames)
+    return map(np.array, images)
+
+
+def generate_images(params, model='mnist', times=50):
+
+    Config = namedtuple("Config", "dim times params batch_size")
+    config = Config(dim=64, times=times, params=params, batch_size=16)
+
+    if model is 'mnist':
+        from models.gans.mnist import generator_forward
+    elif model in ('celeba', 'lsun'):
+        from models.gans.d48_resnet_dcgan import generator_forward
+
+    images = generate_steps(config, generator_forward)
+    return images
+
 
 parser = ArgumentParser()
-parser.add_argument("folder", type=str, help="folder with images")
+parser.add_argument("folder_or_params", type=str,
+    help="folder with images or path to tensorflow model parameters")
 parser.add_argument("--model", type=str, default='mnist',
                     help="pretrained model to use")
 parser.add_argument("--model-path", type=str,
@@ -16,20 +46,10 @@ parser.add_argument("--model-path", type=str,
                     help="parameters of pretrained model")
 opt = parser.parse_args()
 
-
-import numpy as np
-from PIL import Image
-
-
-def read_images(folder):
-    filenames = glob(join(opt.folder, '*.png'))
-    assert all(splitext(f)[1] in ('.png', '.jpg') for f in filenames)
-    print(f"Found {len(filenames)} images in '{opt.folder}'")
-    images = map(Image.open, filenames)
-    return map(np.array, images)
-
-
-images = read_images(opt.folder)
+if isdir(opt.folder_or_params):
+    images = read_images(opt.folder_or_params)
+else:
+    images = generate_images(opt.folder_or_params)
 
 # Compute inception score.
 
