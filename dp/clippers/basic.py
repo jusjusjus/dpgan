@@ -32,7 +32,8 @@ class BasicClipper(Clipper):
         scaled_sigma = sigma / np.sqrt(batch_size)
         noised = {}
         for w, g in m.items():
-            assert w in self.keys
+            assert w in self.keys, f"""
+            Variable {w} has not been registered for noising."""
             C = self.specials.get(w, self.bound).get_bound_tensor()
             noise = tf.random_normal(shape=w.shape, stddev=C * scaled_sigma)
             noised[w] = g + noise
@@ -42,8 +43,7 @@ class BasicClipper(Clipper):
         return "Basic clipper with bound: %r" % self.bound
 
     def update_feed_dict(self, sess, steps):
-        d = {}
-        for k, b in self._bounds.items():
-            d.update(b.update_feed_dict(sess, steps))
-        return d
-
+        update = {}
+        for _, b in self._bounds.items():
+            update.update(b.update_feed_dict(sess, steps))
+        return update
