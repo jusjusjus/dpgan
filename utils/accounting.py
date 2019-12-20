@@ -32,7 +32,7 @@ def generate_binomial_table(m):
         table[i, 0] = 1
     for i in range(1, m + 1):
         for j in range(1, m + 1):
-            v = table[i - 1, j] + table[i - 1, j -1]
+            v = table[i - 1, j] + table[i - 1, j - 1]
             assert not math.isnan(v) and not math.isinf(v)
             table[i, j] = v
     return tf.convert_to_tensor(table)
@@ -71,16 +71,17 @@ class GaussianMomentsAccountant(object):
         Returns:
           0 to t-th moment as a tensor of shape [t+1]."""
 
-        assert t <= self._max_moment_order, f"""
+        t1 = t + 1
+        assert t1 < self._max_moment_order, f"""
         Order {t} is above upper bound {self._max_moment_order}"""
-        binomial = tf.slice(self._binomial, begin=[0, 0], size=[t+1, t+1])
-        signs = np.zeros((t + 1, t + 1), dtype=np.float64)
-        for i in range(t + 1):
-            for j in range(t + 1):
+        binomial = tf.slice(self._binomial, begin=[0, 0], size=[t1, t1])
+        signs = np.zeros((t1, t1), dtype=np.float64)
+        for i in range(t1):
+            for j in range(t1):
                 signs[i, j] = 1. - 2 * ((i - j) % 2)
 
         exponents = tf.constant([j * (j + 1. - 2. * s) / (2. * sigma * sigma)
-                                 for j in range(t + 1)], dtype=tf.float64)
+                                 for j in range(t1)], dtype=tf.float64)
 
         # x[i, j] = binomial[i, j] * signs[i, j] = (i choose j) * (-1)^{i-j}
 
