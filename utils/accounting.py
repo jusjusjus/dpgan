@@ -72,7 +72,7 @@ class GaussianMomentsAccountant(object):
           0 to t-th moment as a tensor of shape [t+1]."""
 
         t1 = t + 1
-        assert t1 < self._max_moment_order, f"""
+        assert t <= self._max_moment_order, f"""
         Order {t} is above upper bound {self._max_moment_order}"""
         binomial = tf.slice(self._binomial, begin=[0, 0], size=[t1, t1])
         signs = np.zeros((t1, t1), dtype=np.float64)
@@ -80,8 +80,10 @@ class GaussianMomentsAccountant(object):
             for j in range(t1):
                 signs[i, j] = 1. - 2 * ((i - j) % 2)
 
-        exponents = tf.constant([j * (j + 1. - 2. * s) / (2. * sigma * sigma)
-                                 for j in range(t1)], dtype=tf.float64)
+        exponents = tf.constant([
+            j * (j + 1. - 2. * s) / (2. * sigma**2)
+            for j in range(t1)
+        ], dtype=tf.float64)
 
         # x[i, j] = binomial[i, j] * signs[i, j] = (i choose j) * (-1)^{i-j}
 
@@ -120,12 +122,12 @@ class GaussianMomentsAccountant(object):
 
         qs = tf.exp(tf.constant([i * 1.0 for i in range(moment_order + 1)],
                                 dtype=tf.float64) * tf.cast(
-                                    tf.log(q), dtype=tf.float64))
+                                    tf.math.log(q), dtype=tf.float64))
         moments0 = self._differential_moments(sigma, 0.0, moment_order)
         term0 = tf.reduce_sum(binomial * qs * moments0)
         moments1 = self._differential_moments(sigma, 1.0, moment_order)
         term1 = tf.reduce_sum(binomial * qs * moments1)
-        return tf.squeeze(tf.log(tf.cast(q * term0 + (1.0 - q) * term1,
+        return tf.squeeze(tf.math.log(tf.cast(q * term0 + (1.0 - q) * term1,
                                          tf.float64)))
 
     def _compute_delta(self, log_moments, eps):
@@ -151,7 +153,7 @@ class GaussianMomentsAccountant(object):
         return min_delta
 
     def _compute_eps(self, log_moments, delta):
-        min_eps = float("inf")
+        min_eps = float('inf')
         for moment_order, log_moment in log_moments:
             if math.isinf(log_moment) or math.isnan(log_moment):
                 sys.stderr.write("The %d-th order is inf or Nan\n" % moment_order)
@@ -186,7 +188,8 @@ class GaussianMomentsAccountant(object):
         q = tf.cast(num_examples, tf.float64) / float(self._total_examples)
 
         moments_accum_ops = [
-            tf.assign_add(moment, self._compute_log_moment(sigma, q, order))
+            tf.compat.v1.assign_add(moment, self._compute_log_moment(
+                sigma, q, order))
             for moment, order in zip(self._log_moments, self._moment_orders)
         ]
         return tf.group(*moments_accum_ops)
