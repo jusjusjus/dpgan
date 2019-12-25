@@ -5,10 +5,8 @@ from utils.ops import get_variable_hook, get_variable_hook_replace
 
 def discriminator_forward_per_examples(forward_func, flags, incoming,
                       scope="discriminator", name=None, reuse=True):
-    examples = tf.split(incoming, flags.batch_size, axis=0)
-    lookups = []
-    outputs = []
-    for example in examples:
+    lookups, outputs = [], []
+    for example in tf.split(incoming, flags.batch_size, axis=0):
         lookup = {}
         output = get_variable_hook(lookup)(forward_func)(flags, example,
                       scope=scope, name=name, reuse=reuse)
