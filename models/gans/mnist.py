@@ -6,13 +6,22 @@ from tflearn.activations import leaky_relu
 from utils.ops import conv_2d, fully_connected
 
 
-def generator_forward(config, noise=None,
-                      scope="generator", name=None, reuse=False, num_samples=-1):
+def random_labels(num_samples, num_labels):
+    assert num_labels < 256
+    return tf.random.uniform((num_samples,), maxval=num_labels,
+                             name='labels')
+
+
+def generator_forward(config, noise=None, labels=None, scope="generator",
+                      name=None, reuse=False, num_samples=None):
     with tf.compat.v1.variable_scope(scope, name, reuse=reuse):
         if noise is None:
-            num_samples = config.batch_size if num_samples == -1 \
-                          else num_samples
+            num_samples = num_samples if num_samples else config.batch_size
             noise = tf.random.normal([num_samples, 128], name="noise")
+
+        if labels is not None:
+            labels = tf.one_hot(labels, 10)
+            noise = tf.concat([noise, labels], -1)
 
         output = fully_connected(noise, 4*4*4*config.dim)
         output = batch_normalization(output)
@@ -29,12 +38,23 @@ def generator_forward(config, noise=None,
 
         output = tf.tanh(output)
 
-    return output
+    return output if labels is None else (output, labels)
 
 
-def discriminator_forward(config, incoming,
+def discriminator_forward(config, images, labels=None,
                       scope="discriminator", name=None, reuse=False):
     with tf.compat.v1.variable_scope(scope, name, reuse=reuse):
+        if labels is not None:
+
+            # Append one-hot embedding as additional channels to image.  The
+            # embedded representation is expanded as constant vectors across
+            # the whole image shape.
+
+            labels = tf.one_hot(labels, 10)
+            labels = labels[:, None, None, :]
+            labels = tf.compat.v1.tile(labels, (1, *images.shape[1:3], 1))
+            incoming = tf.concat([images, labels], -1)
+
         output = leaky_relu(conv_2d(incoming, config.dim, 5, 2), 0.2)
         output = leaky_relu(conv_2d(output, 2 * config.dim, 5, 2), 0.2)
         output = leaky_relu(conv_2d(output, 4 * config.dim, 5, 2), 0.2)
