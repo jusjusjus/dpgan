@@ -36,7 +36,7 @@ def get_train_ops(config, real_data, fake_data, global_step,
             disc_costs.append(disc_cost)
             disc_grads.append(disc_grad)
 
-    # Estimate gradient penalty from batch[0]
+    # Estimate gradient norms from image sub-batch in split 0
     if supervisor.sampler is not None:
         func = partial(gradient_norms_estimate_tower, config,
                        discriminator_forward, real_data_splits[0],

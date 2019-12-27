@@ -60,7 +60,7 @@ def train_graph_per_tower(config, discriminator_forward, real_data, fake_data,
     gradients = tf.gradients(disc_interpolated_outputs, [interpolates],
                              colocate_gradients_with_ops=True)[0]
     slopes = tf.sqrt(tf.reduce_sum(tf.square(gradients),
-                     reduction_indices=[1, 2, 3]))
+                                   reduction_indices=[1, 2, 3]))
     gradient_penalty = tf.reduce_mean((slopes - 1.) ** 2)
     disc_cost += config.lambd * gradient_penalty
 
