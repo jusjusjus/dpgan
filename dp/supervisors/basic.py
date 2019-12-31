@@ -26,20 +26,12 @@ class BasicSupervisor(Supervisor):
                            real_input, data_loader,
                            accountant=None,
                            **kwargs):
-        if self.sampler is not None:
-            feed_dict = self.sampler.update_feed_dict(sess, total_step)
-        else:
-            feed_dict = {}
+        feed_dict = {} if self.sampler is None else \
+            self.sampler.update_feed_dict(sess, total_step)
         feed_dict.update(self.clipper.update_feed_dict(sess, total_step))
-        feed_dict.update(
-            {
-                real_input: data_loader.next_batch(self.config.num_gpu *
-                                                   self.config.batch_size)[0],
-            }
-        )
-        values = sess.run(
-                    self._disc_train_tensors,
-                    feed_dict=feed_dict)
+        feed_dict.update({real_input: data_loader.next_batch(
+            self.config.num_gpu * self.config.batch_size)[0]})
+        values = sess.run(self._disc_train_tensors, feed_dict=feed_dict)
 
         if accountant is not None:
             for _ in xrange(self.clipper.num_accountant_terms(total_step)):

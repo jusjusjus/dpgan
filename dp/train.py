@@ -68,7 +68,14 @@ def train_steps(config, dataloader, real_data, fake_data, global_step,
     # given, the whole graph is initialized.  If checkpoint
     # `config.gan_load_path` is given, only the generator is initialized.
 
-    sess = tf.Session()
+    sess = tf.compat.v1.Session()
+
+    # Coordinate summaries
+
+    writer = tf.compat.v1.summary.FileWriter(config.log_dir)
+    gen_cost_summary = tf.compat.v1.summary.scalar("train/genloss", gen_cost)
+    fake_data_summary = tf.compat.v1.summary.image("generated", fake_data, max_outputs=10)
+
     # `total_step` may change when loading checkpoints.
     total_step = 1
     if config.load_path:
@@ -92,60 +99,49 @@ def train_steps(config, dataloader, real_data, fake_data, global_step,
 
     early_stop = False
     for epoch in range(config.num_epoch):
-        gen_losses = []
-        disc_losses = []
         num_steps = dataloader.num_steps(config.batch_size * config.num_gpu)
         cmdline = trange(num_steps, leave=False)
         for _ in cmdline:
+            cmdline.set_description(f"total step {total_step}")
             if early_stop:
                 break
+
             if config.total_step is not None and total_step > config.total_step:
                 break
+
             tflearn.is_training(True, sess)
-            gen_cost_value, _ = sess.run([gen_cost, gen_train_op])
-            gen_losses.append(gen_cost_value)
+            gen_summary, _ = sess.run([gen_cost_summary, gen_train_op])
 
             ret = supervisor.callback_before_iter(sess, total_step)
-            num_critic = ret["num_critic"]
-            for i in range(num_critic):
+            for i in range(ret["num_critic"]):
                 # `.callback_disc_iter` also runs the accountant ops.
-                disc_cost_value = supervisor.callback_disc_iter(
+                disc_summary = supervisor.callback_disc_iter(
                     sess, total_step, i, real_data, dataloader,
                     accountant=accountant)
-                if i == num_critic - 1:
-                    disc_losses.append(disc_cost_value)
-            cmdline.set_description(f"gen loss: {gen_cost_value:.3f}, "
-                                    f"disc loss: {disc_cost_value:.3f}")
 
             tflearn.is_training(False, sess)
-            if total_step % config.image_every == 0 and config.image_dir:
-                generated = sess.run(fake_data)
-                filename = join(config.image_dir, f"gen_step_{total_step:05d}.jpg")
-                generate_images(generated, dataloader.mode(), filename)
-                real = [dataloader.next_batch(config.batch_size)[0]
-                        for _ in range(config.num_gpu)]
-                real = np.concatenate(real, axis=0)
-                filename = join(config.image_dir, "real_step_%05d.jpg" % total_step)
-                generate_images(real, dataloader.mode(), filename)
-                del real
+            if total_step % config.image_every == 0:
+                writer.add_summary(sess.run(fake_data_summary), total_step)
 
             if total_step % config.save_every == 0 and config.save_dir:
                 saver.save(sess, join(config.save_dir, "model"), write_meta_graph=False,
                            global_step=global_step)
 
-            if total_step % config.log_every == 0 \
-                    and accountant and config.log_path:
-                spent_eps_deltas = accountant.get_privacy_spent(sess,
-                                        eps=config.target_epsilons)
+            if total_step % config.log_every == 0:
+                writer.add_summary(gen_summary, total_step)
+                writer.add_summary(disc_summary, total_step)
+                if accountant and config.log_path:
+                    spent_eps_deltas = accountant.get_privacy_spent(sess,
+                                            eps=config.target_epsilons)
 
-                with open(config.log_path, "a") as log:
-                    log.write("privacy log at step: %d\n" % total_step)
-                    for spent_eps, spent_delta in spent_eps_deltas:
-                        to_print = "spent privacy: eps %.4f delta %.5g" % (spent_eps, spent_delta)
-                        log.write(to_print + "\n")
-                    log.write("\n")
+                    with open(config.log_path, "a") as log:
+                        log.write("privacy log at step: %d\n" % total_step)
+                        for spent_eps, spent_delta in spent_eps_deltas:
+                            to_print = "spent privacy: eps %.4f delta %.5g" % (spent_eps, spent_delta)
+                            log.write(to_print + "\n")
+                        log.write("\n")
 
-            if total_step % 250 == 0 and accountant and config.terminate:
+            if config.terminate and (total_step % 250) == 0 and accountant:
                 spent_eps_deltas = accountant.get_privacy_spent(sess,
                                         eps=config.target_epsilons)
 

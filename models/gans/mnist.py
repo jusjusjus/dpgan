@@ -53,9 +53,9 @@ def discriminator_forward(config, images, labels=None,
             labels = tf.one_hot(labels, 10)
             labels = labels[:, None, None, :]
             labels = tf.compat.v1.tile(labels, (1, *images.shape[1:3], 1))
-            incoming = tf.concat([images, labels], -1)
+            images = tf.concat([images, labels], -1)
 
-        output = leaky_relu(conv_2d(incoming, config.dim, 5, 2), 0.2)
+        output = leaky_relu(conv_2d(images, config.dim, 5, 2), 0.2)
         output = leaky_relu(conv_2d(output, 2 * config.dim, 5, 2), 0.2)
         output = leaky_relu(conv_2d(output, 4 * config.dim, 5, 2), 0.2)
 

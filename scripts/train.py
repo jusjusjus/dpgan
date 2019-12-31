@@ -36,12 +36,12 @@ parser.add_argument("--gen-learning-rate", default=2e-4, type=float)
 config = parser.parse_args()
 config.dataset = "mnist"
 if hasattr(config, 'output'):
-    config.image_dir = join(config.output, 'images')
     config.save_dir = join(config.output, 'checkpoints')
-    for folder in (config.image_dir, config.save_dir):
-        makedirs(folder, exist_ok=True)
+    makedirs(config.save_dir, exist_ok=True)
     config.log_path = join(config.output, 'logs.txt')
+    config.log_dir = join(config.output, 'summaries')
 
+config.sigma = config.sigma or 1.0
 
 np.random.seed()
 if config.enable_accounting:
@@ -52,7 +52,7 @@ if config.enable_accounting:
         print(f">  sigma = {config.sigma}")
     else:
         assert config.sigma is not None, f"""
-        Either --sigma or --delta and --epsilon have to be provided"""
+        Either --sigma, or --delta and --epsilon have to be provided"""
 
 datakw = {
     'include_test': not config.exclude_test,

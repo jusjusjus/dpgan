@@ -18,12 +18,12 @@ def create_nodp_parser():
     parser.add_argument("-e", "--num-epoch", dest="num_epoch", default=10, type=int)
     parser.add_argument("-c", "--num-critic", dest="critic_iters", default=5, type=int)
 
-    parser.add_argument("--load-path", dest="load_path")
-    parser.add_argument("--image-dir", dest="image_dir")
-    parser.add_argument("--save-dir", dest="save_dir")
-    parser.add_argument("--image-every", dest="image_every", type=int, default=20)
-    parser.add_argument("--save-every", dest="save_every", type=int, default=200)
-    parser.add_argument("--total-step", dest="total_step", type=int)
+    parser.add_argument("--load-path", type=str)
+    parser.add_argument("--image-dir", type=str)
+    parser.add_argument("--save-dir", type=str)
+    parser.add_argument("--image-every", type=int, default=20)
+    parser.add_argument("--save-every", type=int, default=200)
+    parser.add_argument("--total-step", type=int)
 
     parser.add_argument("-g", "--num-gpu", dest="num_gpu", type=int, default=1)
     return parser
@@ -39,7 +39,6 @@ def create_dp_parser():
     parser.add_argument("--load-path", dest="load_path")
     parser.add_argument("-o", "--output", dest="output", required=True,
             default="./cache", type=str, help="Specify the output folder")
-    parser.add_argument("--image-dir", dest="image_dir", default="./cache/images")
     parser.add_argument("--save-dir", dest="save_dir", default="./cache/save")
     parser.add_argument("--image-every", dest="image_every", type=int, default=20)
     parser.add_argument("--save-every", dest="save_every", type=int, default=1000)

@@ -88,6 +88,8 @@ def aggregate_flow(config, disc_costs, gen_costs, disc_grads, gen_optimizer,
     final_disc_cost = tf.add_n(disc_costs) / config.num_gpu
     final_gen_cost = tf.add_n(gen_costs) / config.num_gpu
 
+    final_disc_cost_summary = tf.summary.scalar("train/discloss", final_disc_cost)
+
     optimizer = tf.compat.v1.train.GradientDescentOptimizer(learning_rate=1e-3)
     final_gen_grads = {
         w: g for g, w in optimizer.compute_gradients(final_gen_cost,
@@ -114,6 +116,7 @@ def aggregate_flow(config, disc_costs, gen_costs, disc_grads, gen_optimizer,
 
     disc_train_ops = supervisor.callback_create_disc_train_ops(
         final_disc_grads, disc_optimizer, global_step)
-    supervisor.register_disc_train_ops([final_disc_cost] + disc_train_ops, 0)
+    supervisor.register_disc_train_ops(
+            [final_disc_cost_summary] + disc_train_ops, 0)
 
     return gen_train_op, final_gen_cost
