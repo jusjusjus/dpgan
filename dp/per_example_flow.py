@@ -18,7 +18,7 @@ def gradient_norms_estimate_tower(config, discriminator_forward, real_data,
     disc_cost = tf.reshape((tf.add_n(disc_fake_outputs) - tf.add_n(disc_real_outputs)), []) / config.batch_size
     alphas = tf.random_uniform(shape=[config.batch_size], minval=0., maxval=1.)
     differences = fake_data - real_data
-    interpolates = real_data + (alphas[:, tf.newaxis, tf.newaxis, tf.newaxis] * differences)
+    interpolates = real_data + alphas[:, tf.newaxis, tf.newaxis, tf.newaxis] * differences
     disc_interpolated_outputs = tf.concat(discriminator_forward_with_lookups(
         discriminator_forward, config, interpolates, lookups), axis=0)
 
@@ -54,7 +54,7 @@ def train_graph_per_tower(config, discriminator_forward, real_data, fake_data,
     # Gradient penalty
     alphas = tf.random_uniform(shape=[config.batch_size], minval=0., maxval=1.)
     alphas = alphas[:, tf.newaxis, tf.newaxis, tf.newaxis]
-    interpolates = real_data + (alphas * (fake_data - real_data))
+    interpolates = real_data + alphas * (fake_data - real_data)
     disc_interpolated_outputs = tf.concat(discriminator_forward_with_lookups(
         discriminator_forward, config, interpolates, lookups), axis=0)
     gradients = tf.gradients(disc_interpolated_outputs, [interpolates],
