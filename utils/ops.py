@@ -1,4 +1,3 @@
-from six.moves import xrange
 
 import numpy as np
 import tensorflow as tf
@@ -135,7 +134,7 @@ def conv_2d(incoming, nb_filter, filter_size, strides=1, padding='same',
 def layer_norm(inputs, reuse=False, scope=None, name="LayerNorm", ):
     with tf.variable_scope(scope, default_name=name, reuse=reuse):
         input_shape = inputs.get_shape().as_list()
-        norm_axes = [i for i in xrange(1, len(input_shape))]
+        norm_axes = [i for i in range(1, len(input_shape))]
         mean, var = tf.nn.moments(inputs, norm_axes, keep_dims=True)
 
         n_neurons = inputs.get_shape().as_list()[norm_axes[-1]]
@@ -146,8 +145,8 @@ def layer_norm(inputs, reuse=False, scope=None, name="LayerNorm", ):
                                 tf.constant_initializer(1))
 
         # Add broadcasting dims to offset and scale (e.g. BCHW conv data)
-        offset = tf.reshape(offset, [1 for i in xrange(len(norm_axes)-1)] + [-1])
-        scale = tf.reshape(scale, [1 for i in xrange(len(norm_axes)-1)] + [-1])
+        offset = tf.reshape(offset, [1 for i in range(len(norm_axes)-1)] + [-1])
+        scale = tf.reshape(scale, [1 for i in range(len(norm_axes)-1)] + [-1])
 
         result = tf.nn.batch_normalization(inputs, mean, var, offset, scale, 1e-5)
 
@@ -253,31 +252,34 @@ def optimized_residual_block(incoming, out_channels, filter_size,
     return shortcut + output
 
 
-def get_variable_hook(to_add):
+def get_variable_hook(lookup: dict):
     """
-    To replace the variable with identity of variable for per example gradients.
-    :param to_add:
-    :return:
-    """
-    def overall(f):
-        origin = tf.VariableScope.get_variable
+    To replace the variable with identity of variable for per example
+    gradients.
+
+    :param lookup:
+    :return:"""
+
+    def decorator(f):
+        get_variable_base = tf.VariableScope.get_variable
 
         def get_variable(scope, name, *args, **kwargs):
-            ret = origin(scope, name, *args, **kwargs)
-            ret_id = tf.identity(ret)
-            to_add[ret] = ret_id
-            return ret_id
+            var = get_variable_base(scope, name, *args, **kwargs)
+            var_id = tf.identity(var)
+            lookup[var] = var_id
+            return var_id
 
-        def func(*args, **kwargs):
-            origin = tf.VariableScope.get_variable
+        def wrapped(*args, **kwargs):
+            get_variable_base = tf.VariableScope.get_variable
             tf.VariableScope.get_variable = get_variable
             try:
                 return f(*args, **kwargs)
             finally:
-                tf.VariableScope.get_variable = origin
-        return func
+                tf.VariableScope.get_variable = get_variable_base
 
-    return overall
+        return wrapped
+
+    return decorator
 
 
 def get_variable_hook_replace(lookup):
@@ -286,30 +288,22 @@ def get_variable_hook_replace(lookup):
     :param lookup:
     :return:
     """
-    def overall(f):
-        origin = tf.VariableScope.get_variable
+    def decorator(f):
+        get_variable_base = tf.VariableScope.get_variable
 
         def get_variable(scope, name, *args, **kwargs):
-            ret = origin(scope, name, *args, **kwargs)
-            ret_id = lookup[ret]
-            return ret_id
+            var = get_variable_base(scope, name, *args, **kwargs)
+            var_id = lookup[var]
+            return var_id
 
-        def func(*args, **kwargs):
-            origin = tf.VariableScope.get_variable
+        def wrapped(*args, **kwargs):
+            get_variable_base = tf.VariableScope.get_variable
             tf.VariableScope.get_variable = get_variable
             try:
                 return f(*args, **kwargs)
             finally:
-                tf.VariableScope.get_variable = origin
-        return func
+                tf.VariableScope.get_variable = get_variable_base
 
-    return overall
+        return wrapped
 
-
-def group_varible_hook(l):
-
-    def overall(f):
-        origin = tf.VariableScope.get_variable
-
-        def get_varible(scope, name, *args, **kwargs):
-            ret = origin
+    return decorator

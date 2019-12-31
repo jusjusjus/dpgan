@@ -36,7 +36,7 @@ def get_train_ops(config, real_data, fake_data, global_step,
             disc_costs.append(disc_cost)
             disc_grads.append(disc_grad)
 
-    # Estimate gradient penalty from batch[0]
+    # Estimate gradient norms from image sub-batch in split 0
     if supervisor.sampler is not None:
         func = partial(gradient_norms_estimate_tower, config,
                        discriminator_forward, real_data_splits[0],
@@ -54,10 +54,7 @@ def train_steps(config, dataloader, real_data, fake_data, global_step,
                 gen_train_op, gen_cost, supervisor, accountant=None):
     """"""
 
-    init = tf.global_variables_initializer()
-
-    # Load train savers for the whole graph and for the generator
-    # specifically.
+    # Load train savers for the whole graph and for the generator specifically.
 
     saver = tf.compat.v1.train.Saver(max_to_keep=25)
     var_list = [
@@ -82,11 +79,11 @@ def train_steps(config, dataloader, real_data, fake_data, global_step,
     elif config.gan_load_path:
         print("loading generator and discriminator from '{}'..".format(
               config.gan_load_path))
-        sess.run(init)
+        sess.run(tf.global_variables_initializer())
         gan_saver.restore(sess, config.gan_load_path)
     else:
         print("initializing graph..")
-        sess.run(init)
+        sess.run(tf.global_variables_initializer())
 
     # For mnist, `.callback_before_train` just prints out the clipper
     # information.
@@ -98,8 +95,8 @@ def train_steps(config, dataloader, real_data, fake_data, global_step,
         gen_losses = []
         disc_losses = []
         num_steps = dataloader.num_steps(config.batch_size * config.num_gpu)
-        bar = trange(num_steps, leave=False)
-        for _ in bar:
+        cmdline = trange(num_steps, leave=False)
+        for _ in cmdline:
             if early_stop:
                 break
             if config.total_step is not None and total_step > config.total_step:
@@ -117,8 +114,8 @@ def train_steps(config, dataloader, real_data, fake_data, global_step,
                     accountant=accountant)
                 if i == num_critic - 1:
                     disc_losses.append(disc_cost_value)
-            bar.set_description(f"gen loss: {gen_cost_value:.3f}, "
-                                f"disc loss: {disc_cost_value:.3f}")
+            cmdline.set_description(f"gen loss: {gen_cost_value:.3f}, "
+                                    f"disc loss: {disc_cost_value:.3f}")
 
             tflearn.is_training(False, sess)
             if total_step % config.image_every == 0 and config.image_dir:
@@ -163,7 +160,7 @@ def train_steps(config, dataloader, real_data, fake_data, global_step,
                         break
 
             total_step += 1
-        bar.close()
+        cmdline.close()
 
     if config.save_dir:
         saver.save(sess, join(config.save_dir, "model"), write_meta_graph=False, global_step=global_step)
