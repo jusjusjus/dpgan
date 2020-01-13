@@ -22,10 +22,8 @@ class BasicSupervisor(Supervisor):
     def callback_before_iter(self, sess, total_step, **kwargs):
         return dict(num_critic=self.scheduler.get_critic_steps(total_step))
 
-    def callback_disc_iter(self, sess, total_step, i,
-                           real_input, data_loader,
-                           accountant=None,
-                           **kwargs):
+    def callback_disc_iter(self, sess, total_step, i, real_input, data_loader,
+                           accountant=None, **kwargs):
         feed_dict = {} if self.sampler is None else \
             self.sampler.update_feed_dict(sess, total_step)
         feed_dict.update(self.clipper.update_feed_dict(sess, total_step))

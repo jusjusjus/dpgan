@@ -37,6 +37,7 @@ class BasicClipper(Clipper):
             C = self.specials.get(w, self.bound).get_bound_tensor()
             noise = tf.random_normal(shape=w.shape, stddev=C * scaled_sigma)
             noised[w] = g + noise
+
         return noised
 
     def info(self):

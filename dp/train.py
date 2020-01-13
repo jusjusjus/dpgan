@@ -25,13 +25,15 @@ def get_train_ops(config, real_data, fake_data, global_step,
     fake_data_splits = tf.split(fake_data, config.num_gpu, axis=0)
 
     # Compute critic gradients per GPU and gather gradients
+    penalties = []
     gen_costs = []
     disc_costs = []
     disc_grads = []
     for g, (real_data, fake_data) in enumerate(zip(real_data_splits, fake_data_splits)):
         with tf.device(f"/gpu:{g}"):
-            disc_cost, gen_cost, disc_grad = train_graph_per_tower(
+            disc_cost, gen_cost, disc_grad, penalty = train_graph_per_tower(
                 config, discriminator_forward, real_data, fake_data, supervisor)
+            penalties.append(penalty)
             gen_costs.append(gen_cost)
             disc_costs.append(disc_cost)
             disc_grads.append(disc_grad)
@@ -43,7 +45,7 @@ def get_train_ops(config, real_data, fake_data, global_step,
                        fake_data_splits[0], supervisor)
         supervisor.sampler.set_forward_function(func)
 
-    return aggregate_flow(config, disc_costs, gen_costs, disc_grads,
+    return aggregate_flow(config, disc_costs, gen_costs, disc_grads, penalties,
                           disc_optimizer=disc_optimizer,
                           gen_optimizer=gen_optimizer,
                           global_step=global_step, supervisor=supervisor,
@@ -51,7 +53,7 @@ def get_train_ops(config, real_data, fake_data, global_step,
 
 
 def train_steps(config, dataloader, real_data, fake_data, global_step,
-                gen_train_op, gen_cost, supervisor, accountant=None):
+                gen_train_op, gen_summary_op, supervisor, accountant=None):
     """"""
 
     # Load train savers for the whole graph and for the generator specifically.
@@ -73,19 +75,21 @@ def train_steps(config, dataloader, real_data, fake_data, global_step,
     # Coordinate summaries
 
     writer = tf.compat.v1.summary.FileWriter(config.log_dir)
-    gen_cost_summary = tf.compat.v1.summary.scalar("train/genloss", gen_cost)
-    fake_data_summary = tf.compat.v1.summary.image("generated", fake_data, max_outputs=10)
+    shp = (4, 4)
+    image_grid = tf.contrib.gan.eval.image_grid(fake_data[:np.prod(shp)], shp,
+            image_shape=fake_data.shape[1:-1], num_channels=fake_data.shape[-1])
+    fake_data_summary = tf.compat.v1.summary.image("generated", image_grid,
+                                                   max_outputs=10)
 
     # `total_step` may change when loading checkpoints.
     total_step = 1
     if config.load_path:
-        print("loading graph from '%s'.." % config.load_path)
+        print(f"loading graph from '{config.load_path}'..")
         saver.restore(sess, config.load_path)
         total_step = sess.run(global_step)
-        print("continue training at step %d.." % total_step)
+        print(f"continue training at step {total_step}..")
     elif config.gan_load_path:
-        print("loading generator and discriminator from '{}'..".format(
-              config.gan_load_path))
+        print(f"loading generator and critic from '{config.gan_load_path}'..")
         sess.run(tf.global_variables_initializer())
         gan_saver.restore(sess, config.gan_load_path)
     else:
@@ -110,7 +114,7 @@ def train_steps(config, dataloader, real_data, fake_data, global_step,
                 break
 
             tflearn.is_training(True, sess)
-            gen_summary, _ = sess.run([gen_cost_summary, gen_train_op])
+            gen_summary, _ = sess.run([gen_summary_op, gen_train_op])
 
             ret = supervisor.callback_before_iter(sess, total_step)
             for i in range(ret["num_critic"]):
@@ -163,13 +167,11 @@ def train_steps(config, dataloader, real_data, fake_data, global_step,
 
 
 def train(config, dataloader, generator_forward, discriminator_forward,
-          disc_optimizer, gen_optimizer,
-          supervisor, accountant=None):
+          disc_optimizer, gen_optimizer, supervisor, accountant=None):
     print("parameters:", config)
 
-    for folder in (config.image_dir, config.save_dir):
-        if folder:
-            os.makedirs(folder, exist_ok=True)
+    if config.save_dir:
+        os.makedirs(config.save_dir, exist_ok=True)
 
     print("building graph...")
     global_step = tf.Variable(0, trainable=False)
