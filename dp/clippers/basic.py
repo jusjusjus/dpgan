@@ -29,13 +29,12 @@ class BasicClipper(Clipper):
         return len(self.keys)
 
     def noise_grads(self, m, batch_size, sigma):
-        scaled_sigma = sigma / np.sqrt(batch_size)
         noised = {}
         for w, g in m.items():
             assert w in self.keys, f"""
             Variable {w} has not been registered for noising."""
             C = self.specials.get(w, self.bound).get_bound_tensor()
-            noise = tf.random_normal(shape=w.shape, stddev=C * scaled_sigma)
+            noise = tf.random_normal(shape=w.shape, stddev=C * sigma)
             noised[w] = g + noise
 
         return noised
