@@ -17,7 +17,10 @@ def generate_steps(config, generator_forward):
     with tf.device("/cpu:0"):
         fake_data = generator_forward(config)
 
-    with tf.compat.v1.Session() as sess:
+    mem_manager = tf.ConfigProto()
+    # Allows other processes to co-exist with TensorFlow on GPU
+    mem_manager.gpu_options.allow_growth = True
+    with tf.compat.v1.Session(config=mem_manager) as sess:
         saver = tf.train.Saver()
         saver.restore(sess, config.params)
         print(f"loaded model from {config.params}.")

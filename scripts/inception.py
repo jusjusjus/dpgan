@@ -8,6 +8,15 @@ from argparse import ArgumentParser
 from functools import partial
 from collections import namedtuple
 
+parser = ArgumentParser()
+parser.add_argument("folder_or_params", type=str,
+    help="folder with images or path to tensorflow model parameters")
+parser.add_argument("--model", type=str, default='mnist',
+                    help="pretrained model to use")
+parser.add_argument("--model-path", type=str, required=True,
+                    help="parameters of pretrained model")
+opt = parser.parse_args()
+
 import numpy as np
 from PIL import Image
 
@@ -36,15 +45,6 @@ def generate_images(params, model='mnist', times=50):
     return images
 
 
-parser = ArgumentParser()
-parser.add_argument("folder_or_params", type=str,
-    help="folder with images or path to tensorflow model parameters")
-parser.add_argument("--model", type=str, default='mnist',
-                    help="pretrained model to use")
-parser.add_argument("--model-path", type=str,
-                    default='./cache/mnist/classifier/model-10153',
-                    help="parameters of pretrained model")
-opt = parser.parse_args()
 
 if isdir(opt.folder_or_params):
     images = read_images(opt.folder_or_params)
@@ -58,7 +58,7 @@ if opt.model == 'imagenet':
 elif 'mnist' == opt.model:
     from tasks.mnist_score import get_mnist_score
     get_inception_score = partial(get_mnist_score,
-            model_path=opt.model_path)
+                                  model_path=opt.model_path)
     images = map(lambda x: x[..., 0:1], images)
 
 I, dI = get_inception_score(images)

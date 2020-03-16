@@ -1,7 +1,20 @@
 #!/usr/bin/env python
-from six.moves import xrange
 
+from sys import path
+path.insert(0, '.')
+from os.path import join
+from os import environ as env
 import argparse
+
+data_dir = env.get('DATA', './data')
+
+parser = argparse.ArgumentParser()
+parser.add_argument("model_path", type=str)
+parser.add_argument("--data-dir", type=str, default=join(data_dir, "mnist"))
+parser.add_argument("--batch-size", type=int, default=100)
+parser.add_argument("--dim", dest="dim", default=64, type=int)
+
+config = parser.parse_args()
 
 import numpy as np
 import tflearn
@@ -12,9 +25,7 @@ from models.tasks.mnist import classifier_forward
 from utils.data_utils import MNISTLoader
 
 
-def run_task(config, eval_data_loader,
-               classifier_forward,
-               optimizer):
+def run_task(config, eval_data_loader, classifier_forward, optimizer):
     classifier_inputs = tf.placeholder(tf.float32,
                                        shape=[None] + eval_data_loader.shape(), name="input")
     classifier_label_inputs = tf.placeholder(tf.int32, shape=[None, 10], name="labels")
@@ -31,7 +42,10 @@ def run_task(config, eval_data_loader,
     print("graph built.")
 
     saver = tf.train.Saver(max_to_keep=10)
-    sess = tf.Session()
+    mem_manager = tf.ConfigProto()
+    # Allows other processes to co-exist with TensorFlow on GPU
+    mem_manager.gpu_options.allow_growth = True
+    sess = tf.Session(config=mem_manager)
     sess.run(tf.global_variables_initializer())
 
     saver.restore(sess, config.model_path)
@@ -52,19 +66,11 @@ def run_task(config, eval_data_loader,
     print("accuracy:", np.mean(eval_losses))
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--data-dir", dest="data_dir")
-    parser.add_argument("model_path", metavar="MODELPATH")
-    parser.add_argument("--batch-size", dest="batch_size", type=int, default=100)
-    parser.add_argument("--dim", dest="dim", default=64, type=int)
 
-    config = parser.parse_args()
+print("config: %r" % config)
 
-    print("config: %r" % config)
+eval_data_loader = MNISTLoader(config.data_dir, include_train=False)
 
-    eval_data_loader = MNISTLoader(config.data_dir, include_train=False)
-
-    run_task(config, eval_data_loader,
-             classifier_forward, tf.train.AdamOptimizer())
+run_task(config, eval_data_loader,
+         classifier_forward, tf.train.AdamOptimizer())
 

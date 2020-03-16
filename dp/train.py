@@ -70,7 +70,10 @@ def train_steps(config, dataloader, real_data, fake_data, global_step,
     # given, the whole graph is initialized.  If checkpoint
     # `config.gan_load_path` is given, only the generator is initialized.
 
-    sess = tf.compat.v1.Session()
+    mem_manager = tf.ConfigProto()
+    # Allows other processes to co-exist with TensorFlow on GPU
+    mem_manager.gpu_options.allow_growth = True
+    sess = tf.compat.v1.Session(config=mem_manager)
 
     # Coordinate summaries
 

@@ -1,9 +1,24 @@
 #!/usr/bin/env python
 
+import os
+from os import environ as env
+from os.path import join
 from sys import path
 path.insert(0, '.')
-import os
-import argparse
+from argparse import ArgumentParser
+
+data_dir = env.get('DATA', './data')
+
+parser = ArgumentParser()
+parser.add_argument("--data-dir", default=join(data_dir, "mnist"))
+parser.add_argument("--save-dir", type=str,
+                    default=join("cache", "mnist", "classifier"))
+parser.add_argument("--batch-size", type=int, default=64)
+parser.add_argument("-e", "--num-epoch", dest="num_epoch", type=int, default=15)
+parser.add_argument("--dim", default=64, type=int)
+parser.add_argument("-n", "--num-example", dest="num_example", type=int,
+                    default=50000)
+config = parser.parse_args()
 
 import numpy as np
 import tflearn
@@ -39,7 +54,11 @@ def run_task(config, train_data_loader, eval_data_loader, classifier_forward,
     print("graph built.")
 
     saver = tf.train.Saver(max_to_keep=15)
-    sess = tf.Session()
+
+    mem_manager = tf.ConfigProto()
+    # Allows other processes to co-exist with TensorFlow on GPU
+    mem_manager.gpu_options.allow_growth = True
+    sess = tf.Session(config=mem_manager)
     sess.run(tf.global_variables_initializer())
 
     total_step = 0
@@ -68,23 +87,11 @@ def run_task(config, train_data_loader, eval_data_loader, classifier_forward,
     sess.close()
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--data-dir", default="/data/mnist")
-    parser.add_argument("--save-dir", required=True)
-    parser.add_argument("--batch-size", type=int, default=64)
-    parser.add_argument("-e", "--num-epoch", dest="num_epoch", type=int, default=15)
-    parser.add_argument("--dim", default=64, type=int)
-    parser.add_argument("-n", "--num-example", dest="num_example", type=int,
-                        default=50000)
+print("config: %r" % config)
+os.makedirs(config.save_dir, exist_ok=True)
 
-    config = parser.parse_args()
+train_loader = MNISTLoader(config.data_dir, include_test=False)
+eval_loader = MNISTLoader(config.data_dir, include_train=False)
 
-    print("config: %r" % config)
-    os.makedirs(config.save_dir, exist_ok=True)
-
-    train_data_loader = MNISTLoader(config.data_dir, include_test=False)
-    eval_data_loader = MNISTLoader(config.data_dir, include_train=False)
-
-    run_task(config, train_data_loader, eval_data_loader,
-             classifier_forward, tf.train.AdamOptimizer())
+run_task(config, train_loader, eval_loader,
+         classifier_forward, tf.train.AdamOptimizer())

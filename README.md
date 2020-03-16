@@ -23,7 +23,7 @@ Next, you want to compute the inception score of the trained generator.
 First train an MNIST classifier on the original dataset:
 
 ```bash
-./src/tasks/baseline_mnist_train.py --save-dir ./cache/mnist/clf
+./scripts/build-classifier.py
 ```
 
 After training has finished, locate the generator checkpoints at
