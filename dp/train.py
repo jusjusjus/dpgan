@@ -1,6 +1,7 @@
 
 import os
 from os.path import join
+from time import time
 from functools import partial
 
 import tflearn
@@ -76,6 +77,9 @@ def train_steps(config, dataloader, real_data, fake_data, global_step,
     sess = tf.compat.v1.Session(config=mem_manager)
 
     # Coordinate summaries
+    sample_rate_tensor = tf.compat.v1.placeholder(tf.float32)
+    sample_rate_summary = tf.compat.v1.summary.scalar(
+            "sample_rate", sample_rate_tensor)
 
     writer = tf.compat.v1.summary.FileWriter(config.log_dir)
     shp = (4, 4)
@@ -108,6 +112,7 @@ def train_steps(config, dataloader, real_data, fake_data, global_step,
     for epoch in range(config.num_epoch):
         num_steps = dataloader.num_steps(config.batch_size * config.num_gpu)
         cmdline = trange(num_steps, leave=False)
+        t0 = time()
         for _ in cmdline:
             cmdline.set_description(f"total step {total_step}")
             if early_stop:
@@ -162,7 +167,13 @@ def train_steps(config, dataloader, real_data, fake_data, global_step,
                         print("terminating at step %d.." % total_step)
                         break
 
+            t1 = time()
+            sr = config.num_gpu * config.batch_size / (t1 - t0)
+            summary = sess.run(sample_rate_summary, {sample_rate_tensor: sr})
+            writer.add_summary(summary, total_step)
             total_step += 1
+            t0 = t1
+
         cmdline.close()
 
     if config.save_dir:
